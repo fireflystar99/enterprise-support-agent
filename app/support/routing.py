@@ -20,10 +20,14 @@ def decide_route(question: str, evidence_count: int) -> Route:
     if evidence_count == 0:
         return Route.TICKET
 
-    question_words = set(normalized.split())
+    question_words = normalized.split()
     for term in SENSITIVE_TERMS:
         term_words = term.split()
-        if all(tw in question_words for tw in term_words):
+        # Check if all term words appear as prefixes of any question word
+        if all(
+            any(tw == qw or qw.startswith(tw) for qw in question_words)
+            for tw in term_words
+        ):
             return Route.TICKET
 
     return Route.ANSWER
