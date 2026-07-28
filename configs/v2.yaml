@@ -1,0 +1,10 @@
+version: v2
+description: "BM25 + vector hybrid retrieval with reranker"
+retrieval:
+  mode: hybrid
+  top_k: 8
+  rerank_top_n: 3
+grounding:
+  enabled: false
+  mandatory_citations: false
+  access_filter: false

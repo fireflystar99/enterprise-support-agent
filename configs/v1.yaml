@@ -1,0 +1,9 @@
+version: v1
+description: "Vector-only retrieval baseline"
+retrieval:
+  mode: vector
+  top_k: 3
+grounding:
+  enabled: false
+  mandatory_citations: false
+  access_filter: false

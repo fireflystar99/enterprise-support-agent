@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -8,3 +8,4 @@ class RetrievedChunk:
     title: str
     section: str
     score: float
+    access_level: str = "public"

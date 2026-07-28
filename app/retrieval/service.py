@@ -1,4 +1,5 @@
 from app.retrieval.types import RetrievedChunk
+from app.retrieval.hybrid import reciprocal_rank_fusion
 
 
 def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:
@@ -20,3 +21,6 @@ class RetrievalService:
         tokens = question.lower().split()
         _ = tokens  # placeholder for future use
         return []
+
+    def hybrid_search(self, question: str, vector_results: list[str], bm25_results: list[str]) -> list[str]:
+        return reciprocal_rank_fusion([vector_results, bm25_results])
