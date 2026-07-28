@@ -46,8 +46,9 @@ class SupportAgent:
             )
             session.add(trace)
             session.commit()
-        except (OSError, Exception):  # noqa: BLE001
-            pass
+        except (OSError, Exception) as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).warning("Trace persist failed: %s", exc)
         finally:
             session.close()
 

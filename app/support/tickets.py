@@ -45,8 +45,9 @@ class TicketService:
             session.add(db_ticket)
             session.commit()
             session.close()
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).warning("Ticket DB persist failed: %s", exc)
 
         return record
 
@@ -70,8 +71,9 @@ class TicketService:
                 )
                 self._store[ticket_id] = record
                 return record
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).warning("Ticket DB lookup failed: %s", exc)
         return None
 
 
