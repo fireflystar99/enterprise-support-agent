@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from pydantic import BaseModel
 
 
@@ -26,7 +27,7 @@ class TicketService:
             reason=reason,
             risk_level=risk_level,
             status="open",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._store[ticket_id] = record
         return record

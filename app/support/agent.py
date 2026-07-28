@@ -1,9 +1,10 @@
 import time
 import uuid
+
 from app.api.schemas import ChatResponse, Citation
-from app.support.routing import Route, decide_route, SENSITIVE_TERMS
-from app.support.tickets import ticket_service
 from app.retrieval.types import RetrievedChunk
+from app.support.routing import SENSITIVE_TERMS, Route, decide_route
+from app.support.tickets import ticket_service
 
 
 class SupportAgent:

@@ -1,0 +1,36 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: support_agent
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d support_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/support_agent
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+
+  ui:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      - api
+    command: streamlit run app/ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0

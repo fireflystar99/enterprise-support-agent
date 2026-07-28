@@ -1,5 +1,5 @@
-from app.retrieval.types import RetrievedChunk
 from app.retrieval.hybrid import reciprocal_rank_fusion
+from app.retrieval.types import RetrievedChunk
 
 
 def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:

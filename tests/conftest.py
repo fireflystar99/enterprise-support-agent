@@ -1,7 +1,9 @@
 """Shared test fixtures."""
-from typing import Generator
-from fastapi.testclient import TestClient
+from collections.abc import Generator
+
 import pytest
+from fastapi.testclient import TestClient
+
 from app.api.main import app
 
 

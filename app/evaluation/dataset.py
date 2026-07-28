@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from pydantic import BaseModel
 
 
@@ -23,7 +24,7 @@ def load_golden(path: Path) -> list[GoldenCase]:
                 continue
             try:
                 cases.append(GoldenCase(**json.loads(line)))
-            except (json.JSONDecodeError, Exception) as exc:
+            except (json.JSONDecodeError, Exception) as exc:  # noqa: BLE001
                 print(f"Warning: skipping malformed line {line_num} in {path}: {exc}")
     return cases
 

@@ -1,6 +1,5 @@
-from dataclasses import dataclass
-from typing import List
 import re
+from dataclasses import dataclass
 
 
 @dataclass
@@ -21,12 +20,12 @@ def chunk_markdown(
     version: str = "1.0",
     max_size: int = 800,
     overlap: int = 120,
-) -> List[ChunkDraft]:
+) -> list[ChunkDraft]:
     """Split Markdown by headings into chunks with metadata."""
     lines = text.split("\n")
-    chunks: List[ChunkDraft] = []
+    chunks: list[ChunkDraft] = []
     current_section = ""
-    current_buffer: List[str] = []
+    current_buffer: list[str] = []
 
     def flush() -> None:
         nonlocal current_buffer

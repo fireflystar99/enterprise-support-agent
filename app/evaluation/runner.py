@@ -1,6 +1,7 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
+
 from app.evaluation.dataset import load_golden, split_dataset
 from app.evaluation.metrics import aggregate
 from app.support.agent import support_agent
@@ -15,7 +16,7 @@ def run_experiment(
     cases = load_golden(golden_path)
     filtered = split_dataset(cases, split)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = output_dir / version / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,7 +37,7 @@ def run_experiment(
                 "latency_ms": response.latency_ms,
                 "citation_count": len(response.citations),
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             case_result = {
                 "case_id": case.id,
                 "question": case.question,
@@ -55,8 +56,7 @@ def run_experiment(
 
     cases_path = run_dir / "cases.jsonl"
     with open(cases_path, "w") as f:
-        for r in results:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in results)
 
     summary = aggregate(results)
     summary["version"] = version
