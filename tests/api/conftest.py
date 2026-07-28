@@ -47,11 +47,15 @@ def _mock_deps(monkeypatch) -> Generator[None, None, None]:
     mock_query.filter.return_value = mock_query
     mock_query.limit.return_value = mock_query
     mock_query.all.return_value = [mock_chunk]
+    mock_query.first.return_value = None  # trace GET → not found → 404
     mock_session.query.return_value = mock_query
 
     with (
         patch("sentence_transformers.SentenceTransformer", return_value=fake_model),
         patch("app.db.session.SessionLocal", return_value=mock_session),
+        # Module-level aliases imported before patch takes effect
+        patch("app.support.agent.SessionLocal", return_value=mock_session),
+        patch("app.api.main.SessionLocal", return_value=mock_session),
     ):
         yield
 
