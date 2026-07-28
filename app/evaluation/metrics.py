@@ -15,7 +15,7 @@ def aggregate(results: list[dict]) -> dict:
     correct = sum(1 for r in results if r.get("must_route_to_ticket") == (r.get("route") == "ticket"))
 
     latencies = [r.get("latency_ms", 0) for r in results]
-    avg_latency = int(sum(latencies) / len(latencies)) if latencies else 0
+    avg_latency = round(sum(latencies) / len(latencies)) if latencies else 0
 
     return {
         "total_cases": total,

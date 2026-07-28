@@ -17,10 +17,14 @@ class GoldenCase(BaseModel):
 def load_golden(path: Path) -> list[GoldenCase]:
     cases = []
     with open(path) as f:
-        for line in f:
+        for line_num, line in enumerate(f, 1):
             line = line.strip()
-            if line:
+            if not line:
+                continue
+            try:
                 cases.append(GoldenCase(**json.loads(line)))
+            except (json.JSONDecodeError, Exception) as exc:
+                print(f"Warning: skipping malformed line {line_num} in {path}: {exc}")
     return cases
 
 

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-from app.evaluation.dataset import GoldenCase, load_golden, split_dataset
+from app.evaluation.dataset import load_golden, split_dataset
 from app.evaluation.metrics import aggregate
 from app.support.agent import support_agent
 
@@ -21,20 +21,36 @@ def run_experiment(
 
     results: list[dict] = []
     for case in filtered:
-        response = support_agent.handle(case.question)
-        case_result = {
-            "case_id": case.id,
-            "question": case.question,
-            "category": case.category,
-            "expected_answer": case.expected_answer,
-            "must_route_to_ticket": case.must_route_to_ticket,
-            "route": response.route,
-            "answer": response.answer,
-            "ticket_id": response.ticket_id,
-            "confidence": response.confidence,
-            "latency_ms": response.latency_ms,
-            "citation_count": len(response.citations),
-        }
+        try:
+            response = support_agent.handle(case.question)
+            case_result = {
+                "case_id": case.id,
+                "question": case.question,
+                "category": case.category,
+                "expected_answer": case.expected_answer,
+                "must_route_to_ticket": case.must_route_to_ticket,
+                "route": response.route,
+                "answer": response.answer,
+                "ticket_id": response.ticket_id,
+                "confidence": response.confidence,
+                "latency_ms": response.latency_ms,
+                "citation_count": len(response.citations),
+            }
+        except Exception as exc:
+            case_result = {
+                "case_id": case.id,
+                "question": case.question,
+                "category": case.category,
+                "expected_answer": case.expected_answer,
+                "must_route_to_ticket": case.must_route_to_ticket,
+                "route": "error",
+                "answer": "",
+                "ticket_id": None,
+                "confidence": "low",
+                "latency_ms": 0,
+                "citation_count": 0,
+                "error": str(exc),
+            }
         results.append(case_result)
 
     cases_path = run_dir / "cases.jsonl"
@@ -45,7 +61,6 @@ def run_experiment(
     summary = aggregate(results)
     summary["version"] = version
     summary["split"] = split
-    summary["total_cases"] = len(results)
     summary["timestamp"] = timestamp
     summary["judge_not_configured"] = True
 
