@@ -1,13 +1,17 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Document(Base):
@@ -19,9 +23,7 @@ class Document(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     department: Mapped[str] = mapped_column(String(100), default="General")
     version: Mapped[str] = mapped_column(String(20), default="1.0")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     chunks = relationship(
         "Chunk", back_populates="document", cascade="all, delete-orphan"
@@ -43,10 +45,8 @@ class Chunk(Base):
     department: Mapped[str] = mapped_column(String(100), default="General")
     access_level: Mapped[str] = mapped_column(String(20), default="public")
     version: Mapped[str] = mapped_column(String(20), default="1.0")
-    embedding = Column(Vector(1024), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
-    )
+    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     document = relationship("Document", back_populates="chunks")
 
@@ -61,9 +61,7 @@ class Ticket(Base):
     reason: Mapped[str] = mapped_column(Text, default="")
     risk_level: Mapped[str] = mapped_column(String(20), default="low")
     status: Mapped[str] = mapped_column(String(20), default="open")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
 class QueryTrace(Base):
@@ -79,6 +77,4 @@ class QueryTrace(Base):
     confidence: Mapped[str] = mapped_column(String(10), default="low")
     ticket_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
