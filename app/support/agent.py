@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from app.api.schemas import ChatResponse, Citation
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
-from app.support.routing import SENSITIVE_TERMS, Route, decide_route
+from app.support.routing import Route, calculate_risk_score, decide_route
 from app.support.tickets import ticket_service
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class SupportAgent:
 
         if route is Route.TICKET:
             reason = "Evidence insufficient or sensitive action requested"
-            risk_level = "high" if any(term in question.lower() for term in SENSITIVE_TERMS) else "low"
+            risk_level = "high" if calculate_risk_score(question) > 0 else "low"
             ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
             latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
             return ChatResponse(
