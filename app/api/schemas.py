@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import Literal
 from pydantic import BaseModel
 
 
@@ -15,7 +15,7 @@ class Citation(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    citations: List[Citation]
+    citations: list[Citation]
     confidence: Literal["high", "medium", "low"]
     route: Literal["answer", "ticket"]
     ticket_id: str | None = None

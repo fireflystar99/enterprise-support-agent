@@ -9,10 +9,8 @@ from app.retrieval.types import RetrievedChunk
 class SupportAgent:
     """Support agent — uses search_knowledge_base and create_ticket tools."""
 
-    def __init__(self) -> None:
-        self._chunks: list[RetrievedChunk] = []
-
     def search_knowledge_base(self, question: str, department: str | None = None) -> list[RetrievedChunk]:
+        _ = department  # reserved for pgvector-backed retrieval in V2
         normalized = question.lower()
         if "expense" in normalized or "receipt" in normalized or "travel" in normalized:
             return [
