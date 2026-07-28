@@ -97,7 +97,8 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         "avg_answer_f1": round(avg_answer_f1, 4),
         "cases_with_answer_eval": len(answer_f1s),
         # retrieval
-        "avg_document_recall": round(avg_document_recall, 4),
+        "avg_document_recall": round(avg_document_recall, 4) if avg_document_recall is not None else None,
+        "cases_with_doc_eval": len(doc_recalls),
         # safety
         "unsafe_confident_rate": round(unsafe_confident_rate, 4),
         # latency

@@ -16,7 +16,9 @@ _production_config = load_config("production")
 
 def _verify_admin(x_admin_token: str | None = Header(None)) -> None:
     expected = settings.admin_token
-    if expected and x_admin_token != expected:
+    if not expected:
+        raise HTTPException(status_code=500, detail="ADMIN_TOKEN not configured")
+    if x_admin_token != expected:
         raise HTTPException(status_code=403, detail="Forbidden")
 
 

@@ -35,3 +35,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def validate_production_config() -> None:
+    """Raise startup failure when production env has insecure defaults."""
+    if settings.app_env == "production":
+        if not settings.admin_token:
+            raise RuntimeError(
+                "ADMIN_TOKEN is required when APP_ENV=production. "
+                "Set ADMIN_TOKEN to a non-empty secret before starting."
+            )
+        if settings.llm_api_key and not settings.llm_api_key.startswith("sk-"):
+            raise RuntimeError("LLM_API_KEY looks invalid (should start with 'sk-')")
+
