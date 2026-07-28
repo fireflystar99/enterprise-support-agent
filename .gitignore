@@ -12,3 +12,4 @@ artifacts/
 .git/
 .gitignore
 .idea/
+.cache/
