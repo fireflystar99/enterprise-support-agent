@@ -1,14 +1,24 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Header, HTTPException
 
 from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import ChatRequest, ChatResponse
-from app.core.config import settings
+from app.core.config import settings, validate_production_config
 from app.core.experiment_config import load_config
 from app.db.models import QueryTrace
 from app.db.session import SessionLocal
 from app.support.agent import support_agent
 
-app = FastAPI(title="Enterprise Support Agent")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    validate_production_config()
+    yield
+
+
+app = FastAPI(title="Enterprise Support Agent", lifespan=lifespan)
 app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
 _production_config = load_config("production")
