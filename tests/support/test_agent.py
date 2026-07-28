@@ -1,8 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from app.support.agent import SupportAgent
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
+from app.support.agent import SupportAgent
 
 
 def test_agent_answers_expense_question() -> None:

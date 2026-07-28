@@ -1,4 +1,3 @@
-from statistics import quantiles
 from typing import Any
 
 
@@ -109,5 +108,5 @@ def _percentile(sorted_values: list[int], pct: float) -> int:
     if not sorted_values:
         return 0
     n = len(sorted_values)
-    idx = int(round(pct / 100.0 * (n - 1)))
+    idx = round(pct / 100.0 * (n - 1))
     return sorted_values[min(idx, n - 1)]

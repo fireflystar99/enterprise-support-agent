@@ -32,8 +32,8 @@ class TicketService:
         self._store[ticket_id] = record
 
         try:
-            from app.db.session import SessionLocal
             from app.db.models import Ticket as TicketModel
+            from app.db.session import SessionLocal
             session = SessionLocal()
             db_ticket = TicketModel(
                 id=ticket_id,
@@ -45,7 +45,7 @@ class TicketService:
             session.add(db_ticket)
             session.commit()
             session.close()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
         return record
@@ -54,8 +54,8 @@ class TicketService:
         if ticket_id in self._store:
             return self._store[ticket_id]
         try:
-            from app.db.session import SessionLocal
             from app.db.models import Ticket as TicketModel
+            from app.db.session import SessionLocal
             session = SessionLocal()
             row = session.query(TicketModel).filter(TicketModel.id == ticket_id).first()
             session.close()
@@ -70,7 +70,7 @@ class TicketService:
                 )
                 self._store[ticket_id] = record
                 return record
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
         return None
 

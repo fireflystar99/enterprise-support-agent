@@ -16,14 +16,14 @@ def _git_sha() -> str | None:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip()
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return None
 
 
 def _file_sha256(path: Path) -> str | None:
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return None
 
 

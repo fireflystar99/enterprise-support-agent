@@ -46,7 +46,7 @@ class SupportAgent:
             )
             session.add(trace)
             session.commit()
-        except Exception:
+        except (OSError, Exception):  # noqa: BLE001
             pass
         finally:
             session.close()
@@ -65,7 +65,10 @@ class SupportAgent:
 
         # access filter (V3)
         if config is not None and config.grounding.access_filter:
-            from app.support.grounding import filter_by_access_level, resolve_access_level
+            from app.support.grounding import (
+                filter_by_access_level,
+                resolve_access_level,
+            )
             user_access = resolve_access_level(department)
             chunks = filter_by_access_level(chunks, user_access)
 

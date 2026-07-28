@@ -20,10 +20,11 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://app:app@db:5432/support_agent
       LLM_API_KEY: ${LLM_API_KEY:-}
+      SEED_DEMO_DATA: "true"
     depends_on:
       db:
         condition: service_healthy
-    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+    command: ["/app/scripts/docker-entrypoint.sh", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
   ui:
     build: .

@@ -29,5 +29,5 @@ def judge_answer_faithfulness(expected: str, actual: str) -> int | None:
         raw = response.choices[0].message.content.strip()
         score = int(raw[0]) if raw and raw[0].isdigit() else None
         return score if score is not None and 1 <= score <= 5 else None
-    except Exception:
+    except (OSError, ValueError, Exception):  # noqa: BLE001
         return None

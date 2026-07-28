@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 
+from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import ChatRequest, ChatResponse
-from app.db.session import SessionLocal
 from app.db.models import QueryTrace
+from app.db.session import SessionLocal
 from app.support.agent import support_agent
 
 app = FastAPI(title="Enterprise Support Agent")
+app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
 
 @app.get("/health")

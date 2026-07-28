@@ -10,6 +10,7 @@ def _get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         from sentence_transformers import SentenceTransformer
+
         from app.core.config import settings
         _embedding_model = SentenceTransformer(settings.embedding_model, trust_remote_code=True)
     return _embedding_model
@@ -27,9 +28,8 @@ def ingest_documents(docs_dir: Path) -> list[ChunkDraft]:
 
 def ingest_to_db(docs_dir: Path, clear: bool = False) -> int:
     """Load, chunk, embed, and write documents to pgvector. Returns chunk count."""
-    from app.core.config import settings
+    from app.db.models import Chunk, Document
     from app.db.session import SessionLocal
-    from app.db.models import Document, Chunk
 
     draft_chunks = ingest_documents(docs_dir)
     if not draft_chunks:

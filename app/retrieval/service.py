@@ -1,4 +1,3 @@
-from app.retrieval.hybrid import reciprocal_rank_fusion
 from app.retrieval.types import RetrievedChunk
 
 _embedding_model = None
@@ -8,6 +7,7 @@ def _get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         from sentence_transformers import SentenceTransformer
+
         from app.core.config import settings
         _embedding_model = SentenceTransformer(settings.embedding_model, trust_remote_code=True)
     return _embedding_model
@@ -29,8 +29,8 @@ class RetrievalService:
     """V1: vector search. V2: hybrid vector + text search via RRF."""
 
     def search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
-        from app.db.session import SessionLocal
         from app.db.models import Chunk
+        from app.db.session import SessionLocal
 
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
@@ -58,8 +58,8 @@ class RetrievalService:
             session.close()
 
     def hybrid_search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
-        from app.db.session import SessionLocal
         from app.db.models import Chunk
+        from app.db.session import SessionLocal
 
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
