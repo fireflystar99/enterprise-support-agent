@@ -1,17 +1,18 @@
 import re
+from app.retrieval.types import RetrievedChunk
 
 
 def validate_grounding(answer: str, citations: list[str]) -> bool:
-    """Check that factual answer has at least one citation reference."""
+    """Return True only when the answer has content AND at least one citation reference."""
     if not answer.strip():
-        return True
+        return False
     if not citations:
         return False
     has_citation_marker = bool(re.search(r'\[\d+\]|\[source-\d+\]', answer))
     return has_citation_marker
 
 
-def filter_by_access_level(chunks: list, user_access: str) -> list:
+def filter_by_access_level(chunks: list[RetrievedChunk], user_access: str) -> list[RetrievedChunk]:
     """Filter chunks by minimum access level."""
     access_order = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
     user_level = access_order.get(user_access, 0)
