@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, Header, HTTPException
 
 from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import ChatRequest, ChatResponse
