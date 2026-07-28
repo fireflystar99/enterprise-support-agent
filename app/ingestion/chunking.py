@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List
 import re
 
@@ -48,6 +48,8 @@ def chunk_markdown(
                         access_level=access_level,
                         version=version,
                     ))
+                if end >= len(content):
+                    break
                 start = end - overlap
         else:
             chunks.append(ChunkDraft(
