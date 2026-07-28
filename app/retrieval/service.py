@@ -51,6 +51,8 @@ class RetrievalService:
                     title=row.title,
                     section=row.section,
                     score=1.0,
+                    access_level=row.access_level,
+                    department=row.department,
                 )
                 for row in rows
             ]
@@ -98,6 +100,8 @@ class RetrievalService:
                     title=id_map[rid].title,
                     section=id_map[rid].section,
                     score=all_ids[rid],
+                    access_level=id_map[rid].access_level,
+                    department=id_map[rid].department,
                 )
                 for rid in ranked_ids if rid in id_map
             ]

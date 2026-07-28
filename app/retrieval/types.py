@@ -9,3 +9,4 @@ class RetrievedChunk:
     section: str
     score: float
     access_level: str = "public"
+    department: str = "General"

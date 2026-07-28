@@ -64,7 +64,7 @@ class SupportAgent:
         else:
             chunks = self._retrieval.search(question, department=department, limit=top_k)
 
-        # access filter (V3)
+        # access filter (V3) — use authenticated user identity, not request department field
         if config is not None and config.grounding.access_filter:
             from app.support.grounding import (
                 filter_by_access_level,

@@ -1,0 +1,10 @@
+version: v3
+description: "Production-safe: hybrid retrieval with mandatory grounding"
+retrieval:
+  mode: hybrid
+  top_k: 8
+  rerank_top_n: 3
+grounding:
+  enabled: true
+  mandatory_citations: true
+  access_filter: true

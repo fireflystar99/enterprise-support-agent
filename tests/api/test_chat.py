@@ -13,3 +13,6 @@ def test_chat_password_reset_returns_ticket(client):
     body = response.json()
     assert body["route"] == "ticket"
     assert body["ticket_id"] is not None
+
+
+# reuse test_ingestion fixtures to multi-chunk

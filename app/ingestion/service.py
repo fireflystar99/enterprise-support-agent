@@ -47,31 +47,39 @@ def ingest_to_db(docs_dir: Path, clear: bool = False) -> int:
         seen_titles = {row[0] for row in session.query(Document.title).all()}
         chunk_count = 0
 
-        for draft in draft_chunks:
-            if draft.title in seen_titles:
+        # Group all drafts by title so one Document row covers all its chunks
+        from collections import OrderedDict
+        groups: OrderedDict[str, list[ChunkDraft]] = OrderedDict()
+        for d in draft_chunks:
+            groups.setdefault(d.title, []).append(d)
+
+        for title, drafts in groups.items():
+            if title in seen_titles:
                 continue
 
-            doc = Document(title=draft.title, department=draft.department, version=draft.version)
+            first = drafts[0]
+            doc = Document(title=title, department=first.department, version=first.version)
             session.add(doc)
             session.flush()
 
-            texts = [draft.content]
-            embedding = model.encode(texts, normalize_embeddings=True).tolist()[0]
+            texts = [d.content for d in drafts]
+            embeddings = model.encode(texts, normalize_embeddings=True).tolist()
 
-            chunk = Chunk(
-                document_id=doc.id,
-                content=draft.content,
-                title=draft.title,
-                section=draft.section,
-                department=draft.department,
-                access_level=draft.access_level,
-                version=draft.version,
-                embedding=embedding,
-            )
-            session.add(chunk)
-            session.flush()
-            seen_titles.add(draft.title)
-            chunk_count += 1
+            for draft, emb in zip(drafts, embeddings, strict=False):
+                chunk = Chunk(
+                    document_id=doc.id,
+                    content=draft.content,
+                    title=title,
+                    section=draft.section,
+                    department=draft.department,
+                    access_level=draft.access_level,
+                    version=draft.version,
+                    embedding=emb,
+                )
+                session.add(chunk)
+                chunk_count += 1
+
+            seen_titles.add(title)
 
         session.commit()
         return chunk_count

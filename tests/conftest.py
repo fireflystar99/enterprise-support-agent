@@ -29,8 +29,10 @@ def _make_mock_chunk(id="c1", content="Submit receipts within 30 calendar days."
 
 
 @pytest.fixture(autouse=True)
-def _mock_deps() -> Generator[None, None, None]:
+def _mock_deps(monkeypatch) -> Generator[None, None, None]:
     """Mock heavy dependencies so tests run without network or database."""
+    monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
+
     fake_model = MagicMock()
     fake_model.encode = MagicMock(return_value=_FakeEncoding([[0.0] * 1024]))
 

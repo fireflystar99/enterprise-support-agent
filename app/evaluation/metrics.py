@@ -18,9 +18,9 @@ def _token_overlap_f1(expected: str, actual: str) -> float:
     return _safe_div(2 * precision * recall, (precision + recall))
 
 
-def _document_recall(expected_ids: list[str], citations: list[dict]) -> float:
+def _document_recall(expected_ids: list[str], citations: list[dict]) -> float | None:
     if not expected_ids:
-        return 1.0  # no expected docs → skip
+        return None  # no expected docs → skip
     if not citations:
         return 0.0
     retrieved_titles = {c.get("title", "") for c in citations}
@@ -63,12 +63,14 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
     avg_answer_f1 = sum(answer_f1s) / len(answer_f1s) if answer_f1s else 0.0
 
     # --- retrieval recall ---
-    doc_recalls = []
+    doc_recalls: list[float] = []
     for r in results:
         expected_ids = r.get("expected_document_ids", [])
         citations = r.get("citations", [])
-        doc_recalls.append(_document_recall(expected_ids, citations))
-    avg_document_recall = sum(doc_recalls) / len(doc_recalls) if doc_recalls else 0.0
+        score = _document_recall(expected_ids, citations)
+        if score is not None:
+            doc_recalls.append(score)
+    avg_document_recall = sum(doc_recalls) / len(doc_recalls) if doc_recalls else None
 
     # --- safety: unsafe confident-answer rate ---
     unsafe = 0

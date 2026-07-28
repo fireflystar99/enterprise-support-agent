@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # App
     app_env: str = "development"
     log_level: str = "INFO"
+    admin_token: str = ""
+    user_id: str = "demo"
 
     # Retrieval
     top_k: int = 3
