@@ -14,7 +14,7 @@ class TicketRecord(BaseModel):
 
 
 class TicketService:
-    """Simulated ticket creation — never modifies any external system."""
+    """Ticket creation with in-memory cache and optional database persistence."""
 
     def __init__(self) -> None:
         self._store: dict[str, TicketRecord] = {}
@@ -30,10 +30,49 @@ class TicketService:
             created_at=datetime.now(UTC),
         )
         self._store[ticket_id] = record
+
+        try:
+            from app.db.session import SessionLocal
+            from app.db.models import Ticket as TicketModel
+            session = SessionLocal()
+            db_ticket = TicketModel(
+                id=ticket_id,
+                question=question,
+                reason=reason,
+                risk_level=risk_level,
+                status="open",
+            )
+            session.add(db_ticket)
+            session.commit()
+            session.close()
+        except Exception:
+            pass
+
         return record
 
     def get(self, ticket_id: str) -> TicketRecord | None:
-        return self._store.get(ticket_id)
+        if ticket_id in self._store:
+            return self._store[ticket_id]
+        try:
+            from app.db.session import SessionLocal
+            from app.db.models import Ticket as TicketModel
+            session = SessionLocal()
+            row = session.query(TicketModel).filter(TicketModel.id == ticket_id).first()
+            session.close()
+            if row:
+                record = TicketRecord(
+                    id=str(row.id),
+                    question=row.question,
+                    reason=row.reason or "",
+                    risk_level=row.risk_level,
+                    status=row.status,
+                    created_at=row.created_at,
+                )
+                self._store[ticket_id] = record
+                return record
+        except Exception:
+            pass
+        return None
 
 
 ticket_service = TicketService()

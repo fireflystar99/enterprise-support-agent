@@ -3,6 +3,8 @@ import uuid
 from typing import TYPE_CHECKING
 
 from app.api.schemas import ChatResponse, Citation
+from app.db.models import QueryTrace
+from app.db.session import SessionLocal
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
 from app.support.routing import Route, calculate_risk_score, decide_route
@@ -29,6 +31,26 @@ class SupportAgent:
             lines.append(f"[{i}] {c.content}")
         return "\n\n".join(lines)
 
+    def _persist_trace(self, trace_id: str, question: str, chunk_ids: str, answer: str, route: str, confidence: str, ticket_id: str | None, latency_ms: int) -> None:
+        try:
+            session = SessionLocal()
+            trace = QueryTrace(
+                id=trace_id,
+                question=question,
+                retrieved_chunk_ids=chunk_ids,
+                answer=answer,
+                route=route,
+                confidence=confidence,
+                ticket_id=ticket_id,
+                latency_ms=latency_ms,
+            )
+            session.add(trace)
+            session.commit()
+        except Exception:
+            pass
+        finally:
+            session.close()
+
     def handle(self, question: str, department: str | None = None, config: "ExperimentConfig | None" = None) -> ChatResponse:
         trace_id = str(uuid.uuid4())
         start = time.monotonic_ns()
@@ -49,13 +71,14 @@ class SupportAgent:
 
         evidence_count = len(chunks)
         route = decide_route(question, evidence_count)
+        chunk_ids = ",".join(c.id for c in chunks)
 
         if route is Route.TICKET:
             reason = "Evidence insufficient or sensitive action requested"
             risk_level = "high" if calculate_risk_score(question) > 0 else "low"
             ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
             latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
-            return ChatResponse(
+            response = ChatResponse(
                 answer="Your request has been forwarded to the support team for handling.",
                 citations=[],
                 confidence="low",
@@ -64,6 +87,8 @@ class SupportAgent:
                 trace_id=trace_id,
                 latency_ms=latency_ms,
             )
+            self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
+            return response
 
         citations = [
             Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200])
@@ -79,7 +104,7 @@ class SupportAgent:
             if not validate_grounding(answer, citation_ids):
                 ticket = ticket_service.create(question, reason="Answer grounding failed", risk_level="high")
                 latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
-                return ChatResponse(
+                response = ChatResponse(
                     answer="Unable to verify answer against sources. Forwarding to support.",
                     citations=[],
                     confidence="low",
@@ -88,9 +113,11 @@ class SupportAgent:
                     trace_id=trace_id,
                     latency_ms=latency_ms,
                 )
+                self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
+                return response
 
         latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
-        return ChatResponse(
+        response = ChatResponse(
             answer=answer,
             citations=citations,
             confidence="high" if evidence_count >= 2 else "medium",
@@ -98,6 +125,8 @@ class SupportAgent:
             trace_id=trace_id,
             latency_ms=latency_ms,
         )
+        self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
+        return response
 
 
 support_agent = SupportAgent()
