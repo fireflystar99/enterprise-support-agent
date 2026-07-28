@@ -31,8 +31,9 @@ def _make_mock_chunk(id="c1", content="Submit receipts within 30 calendar days."
 @pytest.fixture(autouse=True)
 def _mock_deps(monkeypatch) -> Generator[None, None, None]:
     """Mock heavy dependencies so tests run without network or database."""
-    monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
-    monkeypatch.setenv("APP_ENV", "development")
+    from app.core.config import settings as app_settings
+    monkeypatch.setattr(app_settings, "admin_token", "test-admin-token")
+    monkeypatch.setattr(app_settings, "app_env", "development")
 
     fake_model = MagicMock()
     fake_model.encode = MagicMock(return_value=_FakeEncoding([[0.0] * 1024]))
@@ -56,6 +57,8 @@ def _mock_deps(monkeypatch) -> Generator[None, None, None]:
         # Module-level aliases imported before patch takes effect
         patch("app.support.agent.SessionLocal", return_value=mock_session),
         patch("app.api.main.SessionLocal", return_value=mock_session),
+        # support/conftest disables _persist_trace for unit tests, but
+        # API tests route through app so we need the full agent untouched
     ):
         yield
 
