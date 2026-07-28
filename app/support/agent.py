@@ -1,11 +1,15 @@
 import time
 import uuid
+from typing import TYPE_CHECKING
 
 from app.api.schemas import ChatResponse, Citation
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
 from app.support.routing import SENSITIVE_TERMS, Route, decide_route
 from app.support.tickets import ticket_service
+
+if TYPE_CHECKING:
+    from app.core.experiment_config import ExperimentConfig
 
 
 class SupportAgent:
@@ -20,16 +24,29 @@ class SupportAgent:
     def _build_answer(self, chunks: list[RetrievedChunk]) -> str:
         if not chunks:
             return ""
-        lines = [chunks[0].content]
+        lines = [f"[1] {chunks[0].content}"]
         for i, c in enumerate(chunks[1:], 2):
             lines.append(f"[{i}] {c.content}")
         return "\n\n".join(lines)
 
-    def handle(self, question: str, department: str | None = None) -> ChatResponse:
+    def handle(self, question: str, department: str | None = None, config: "ExperimentConfig | None" = None) -> ChatResponse:
         trace_id = str(uuid.uuid4())
         start = time.monotonic_ns()
 
-        chunks = self.search_knowledge_base(question, department)
+        top_k = config.retrieval.top_k if config else 3
+        use_hybrid = config is not None and config.retrieval.mode == "hybrid"
+
+        if use_hybrid:
+            chunks = self._retrieval.hybrid_search(question, department=department, limit=top_k)
+        else:
+            chunks = self._retrieval.search(question, department=department, limit=top_k)
+
+        # access filter (V3)
+        if config is not None and config.grounding.access_filter:
+            from app.support.grounding import filter_by_access_level, resolve_access_level
+            user_access = resolve_access_level(department)
+            chunks = filter_by_access_level(chunks, user_access)
+
         evidence_count = len(chunks)
         route = decide_route(question, evidence_count)
 
@@ -53,6 +70,25 @@ class SupportAgent:
             for c in chunks
         ]
         answer = self._build_answer(chunks)
+
+        # grounding check (V3)
+        mandatory = config is not None and config.grounding.enabled and config.grounding.mandatory_citations
+        if mandatory:
+            from app.support.grounding import validate_grounding
+            citation_ids = [c.chunk_id for c in citations]
+            if not validate_grounding(answer, citation_ids):
+                ticket = ticket_service.create(question, reason="Answer grounding failed", risk_level="high")
+                latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
+                return ChatResponse(
+                    answer="Unable to verify answer against sources. Forwarding to support.",
+                    citations=[],
+                    confidence="low",
+                    route="ticket",
+                    ticket_id=ticket.id,
+                    trace_id=trace_id,
+                    latency_ms=latency_ms,
+                )
+
         latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
         return ChatResponse(
             answer=answer,

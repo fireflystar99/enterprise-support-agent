@@ -21,3 +21,12 @@ def filter_by_access_level(chunks: list[RetrievedChunk], user_access: str) -> li
         c for c in chunks
         if access_order.get(c.access_level, 0) <= user_level
     ]
+
+
+def resolve_access_level(department: str | None) -> str:
+    """Map a department to a minimum access level for filtering."""
+    if department in ("Finance", "IT", "HR"):
+        return "internal"
+    if department in ("Legal", "Executive"):
+        return "confidential"
+    return "public"
