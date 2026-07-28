@@ -1,14 +1,29 @@
+from app.core.config import settings
 from app.retrieval.types import RetrievedChunk
 
 _embedding_model = None
+
+_DEMO_CHUNKS: dict[str, RetrievedChunk] = {
+    "expense": RetrievedChunk(id="demo-1", content="差旅报销必须在费用发生日起30天内提交，逾期需经理审批。", title="差旅报销政策", section="提交时限", score=0.95, access_level="public", department="General"),
+    "receipt": RetrievedChunk(id="demo-2", content="¥1,000元以下的费用自动批准，¥1,000-¥5,000需部门经理审批。", title="差旅报销政策", section="审批规则", score=0.85, access_level="public", department="General"),
+    "travel": RetrievedChunk(id="demo-3", content="4小时以下航班经济舱，4小时以上可申请商务舱。", title="差旅报销政策", section="可报销项目", score=0.8, access_level="public", department="General"),
+    "vpn": RetrievedChunk(id="demo-4", content="VPN密码重置需要联系IT支持，请拨打IT服务台电话或提交工单。", title="VPN常见问题", section="密码重置", score=0.9, access_level="public", department="IT"),
+}
+
+
+def _demo_search(question: str) -> list[RetrievedChunk]:
+    normalized = question.lower()
+    results = []
+    for keyword, chunk in _DEMO_CHUNKS.items():
+        if keyword in normalized:
+            results.append(chunk)
+    return results[:3]
 
 
 def _get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
         from sentence_transformers import SentenceTransformer
-
-        from app.core.config import settings
         _embedding_model = SentenceTransformer(settings.embedding_model, trust_remote_code=True)
     return _embedding_model
 
@@ -29,6 +44,9 @@ class RetrievalService:
     """V1: vector search. V2: hybrid vector + text search via RRF."""
 
     def search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
+        if settings.app_env == "demo":
+            return _demo_search(question)
+
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
@@ -60,6 +78,9 @@ class RetrievalService:
             session.close()
 
     def hybrid_search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
+        if settings.app_env == "demo":
+            return _demo_search(question)
+
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
@@ -83,14 +104,13 @@ class RetrievalService:
             def row_key(row: Chunk) -> str:
                 return str(row.id)
 
-            # RRF fuse
             all_ids: dict[str, float] = {}
             for rank, row in enumerate(vector_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
             for rank, row in enumerate(text_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
 
-            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:limit]  # type: ignore[arg-type]
+            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:limit]
 
             id_map = {row_key(row): row for row in vector_rows + text_rows}
             return [

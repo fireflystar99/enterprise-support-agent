@@ -83,7 +83,7 @@ class SupportAgent:
             ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
             latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
             response = ChatResponse(
-                answer="Your request has been forwarded to the support team for handling.",
+                answer="您的请求已转交技术支持团队处理，工单已创建。",
                 citations=[],
                 confidence="low",
                 route="ticket",
@@ -109,7 +109,7 @@ class SupportAgent:
                 ticket = ticket_service.create(question, reason="Answer grounding failed", risk_level="high")
                 latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
                 response = ChatResponse(
-                    answer="Unable to verify answer against sources. Forwarding to support.",
+                    answer="无法验证答案来源，已转交技术支持处理。",
                     citations=[],
                     confidence="low",
                     route="ticket",
