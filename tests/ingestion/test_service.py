@@ -26,18 +26,16 @@ def test_ingest_to_db_inserts_all_chunks_per_document(tmp_path: Path) -> None:
     from app.ingestion.service import ingest_to_db
 
     with (
-        patch.object(type(ingest_to_db), "__globals__", {}),
-        patch("app.ingestion.service.SessionLocal") as mock_cls,
+        patch("app.db.session.SessionLocal") as mock_cls,
         patch("app.ingestion.service._get_embedding_model") as mock_model,
     ):
+        fake_model = mock_model.return_value
+        fake_model.encode.return_value.tolist.return_value = [[0.0] * 1024] * 3
 
-            fake_model = mock_model.return_value
-            fake_model.encode.return_value.tolist.return_value = [[0.0] * 1024] * 3
+        mock_session = mock_cls.return_value.__enter__.return_value
+        mock_session.query.return_value.all.return_value = []
 
-            mock_session = mock_cls.return_value.__enter__.return_value
-            mock_session.query.return_value.all.return_value = []
+        result_count = ingest_to_db(tmp_path, clear=False)
 
-            result_count = ingest_to_db(tmp_path, clear=False)
-
-            # 3 sections → 3 chunks
-            assert result_count == 3
+        # 3 sections → 3 chunks
+        assert result_count == 3

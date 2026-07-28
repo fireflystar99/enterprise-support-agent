@@ -1,11 +1,13 @@
 from pathlib import Path
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env", extra="ignore")
+
     # LLM
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com"
@@ -28,10 +30,6 @@ class Settings(BaseSettings):
     top_k: int = 3
     chunk_size: int = 800
     chunk_overlap: int = 120
-
-    class Config:
-        env_file = PROJECT_ROOT / ".env"
-        extra = "ignore"
 
 
 settings = Settings()

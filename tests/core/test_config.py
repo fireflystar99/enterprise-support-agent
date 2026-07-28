@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from app.core.config import settings, validate_production_config
 
 
@@ -10,9 +11,9 @@ def test_production_env_requires_admin_token() -> None:
     with (
         patch.object(settings, "app_env", "production"),
         patch.object(settings, "admin_token", ""),
+        pytest.raises(RuntimeError, match="ADMIN_TOKEN is required"),
     ):
-        with pytest.raises(RuntimeError, match="ADMIN_TOKEN is required"):
-            validate_production_config()
+        validate_production_config()
 
 
 def test_production_env_with_token_passes() -> None:
