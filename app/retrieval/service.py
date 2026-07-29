@@ -1,7 +1,11 @@
+import logging
+import time
+
 from app.core.config import settings
 from app.retrieval.types import RetrievedChunk
 
 _embedding_model = None
+logger = logging.getLogger(__name__)
 
 _DEMO_CHUNKS: dict[str, RetrievedChunk] = {
     "expense": RetrievedChunk(id="demo-1", content="差旅报销必须在费用发生日起30天内提交，逾期需经理审批。", title="差旅报销政策", section="提交时限", score=0.95, access_level="public", department="General"),
@@ -28,6 +32,17 @@ def _get_embedding_model():
     return _embedding_model
 
 
+def warm_embedding_model() -> None:
+    """Load the embedding model during startup, before user traffic arrives."""
+    if settings.app_env == "demo":
+        return
+    try:
+        _get_embedding_model()
+    except OSError:
+        import logging
+        logging.getLogger(__name__).warning("Embedding model unavailable — continuing in degraded mode")
+
+
 def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:
     """Rank candidate texts by token overlap with the question."""
     question_tokens = set(question.lower().split())
@@ -50,17 +65,21 @@ class RetrievalService:
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
+        started = time.perf_counter()
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
+        self.last_timings["embedding_ms"] = int((time.perf_counter() - started) * 1000)
 
         session = SessionLocal()
         try:
+            started = time.perf_counter()
             q = session.query(Chunk).order_by(
                 Chunk.embedding.cosine_distance(query_embedding)
             )
             if department:
                 q = q.filter(Chunk.department == department)
             rows = q.limit(limit).all()
+            self.last_timings["vector_search_ms"] = int((time.perf_counter() - started) * 1000)
 
             return [
                 RetrievedChunk(
@@ -84,8 +103,10 @@ class RetrievalService:
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
+        started = time.perf_counter()
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
+        self.last_timings["embedding_ms"] = int((time.perf_counter() - started) * 1000)
 
         session = SessionLocal()
         try:
@@ -93,17 +114,22 @@ class RetrievalService:
             if department:
                 base = base.filter(Chunk.department == department)
 
+            started = time.perf_counter()
             vector_rows = base.order_by(
                 Chunk.embedding.cosine_distance(query_embedding)
             ).limit(limit * 4).all()
+            self.last_timings["vector_search_ms"] = int((time.perf_counter() - started) * 1000)
 
+            started = time.perf_counter()
             text_rows = base.filter(
                 Chunk.content.ilike(f"%{question.split()[0]}%")
             ).limit(limit * 2).all()
+            self.last_timings["text_search_ms"] = int((time.perf_counter() - started) * 1000)
 
             def row_key(row: Chunk) -> str:
                 return str(row.id)
 
+            started = time.perf_counter()
             all_ids: dict[str, float] = {}
             for rank, row in enumerate(vector_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
@@ -113,7 +139,7 @@ class RetrievalService:
             ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:limit]
 
             id_map = {row_key(row): row for row in vector_rows + text_rows}
-            return [
+            result = [
                 RetrievedChunk(
                     id=str(id_map[rid].id),
                     content=id_map[rid].content,
@@ -125,5 +151,16 @@ class RetrievalService:
                 )
                 for rid in ranked_ids if rid in id_map
             ]
+            self.last_timings["fusion_ms"] = int((time.perf_counter() - started) * 1000)
+            if sum(self.last_timings.values()) > 1000:
+                logger.warning("Slow retrieval: %s", self.last_timings)
+            return result
         finally:
             session.close()
+    def __init__(self) -> None:
+        self.last_timings = {
+            "embedding_ms": 0,
+            "vector_search_ms": 0,
+            "text_search_ms": 0,
+            "fusion_ms": 0,
+        }

@@ -9,12 +9,14 @@ from app.core.config import settings, validate_production_config
 from app.core.experiment_config import load_config
 from app.db.models import QueryTrace
 from app.db.session import SessionLocal
+from app.retrieval.service import warm_embedding_model
 from app.support.agent import support_agent
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     validate_production_config()
+    warm_embedding_model()
     yield
 
 
