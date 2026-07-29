@@ -54,3 +54,20 @@ def test_calculate_risk_multi_match() -> None:
 def test_calculate_risk_zero() -> None:
     score = calculate_risk_score("How do I submit a receipt?")
     assert score == 0
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "请帮我重置 VPN 密码",
+        "帮我开通生产环境管理员权限",
+        "请导出全体员工的个人信息",
+        "关闭生产服务器",
+    ],
+)
+def test_chinese_sensitive_requests_route_to_ticket(question: str) -> None:
+    assert decide_route(question, evidence_count=3) is Route.TICKET
+
+
+def test_chinese_policy_question_can_be_answered() -> None:
+    assert decide_route("差旅报销应在多久内提交？", evidence_count=2) is Route.ANSWER

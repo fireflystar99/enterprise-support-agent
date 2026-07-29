@@ -1,18 +1,18 @@
-# Travel Expense Policy
+# 智行科技差旅报销管理办法
 
-## Submission Deadlines
-All travel expense reports must be submitted within 30 calendar days of the expense date. Late submissions require manager approval.
+## 提交时限
+员工应在费用发生之日起 30 个自然日内提交差旅报销单。逾期提交需直属主管审批。
 
-## Approval Rules
-Expenses under ¥1,000 are auto-approved. Expenses between ¥1,000 and ¥5,000 require department manager approval. Expenses over ¥5,000 require VP approval.
+## 审批规则
+单笔低于 1,000 元自动审批；1,000 元至 5,000 元由部门负责人审批；超过 5,000 元须由副总裁审批。
 
-## Reimbursable Items
-- Airfare (economy class for flights under 4 hours, business class for 4+ hours)
-- Hotel (up to ¥800/night for domestic, ¥1,200/night for international)
-- Meals (¥200/day domestic, ¥400/day international)
-- Taxi/ride-sharing (with receipt)
+## 可报销项目
+- 机票：飞行时长不足 4 小时乘坐经济舱，4 小时及以上可乘坐公务舱。
+- 住宿：国内每晚不超过 800 元，国际每晚不超过 1,200 元。
+- 餐费：国内每日不超过 200 元，国际每日不超过 400 元。
+- 出租车或网约车：须提供有效行程或发票凭证。
 
-## Non-Reimbursable Items
-- Personal entertainment (movies, concerts)
-- Mini-bar charges
-- Travel insurance (already covered by corporate policy)
+## 不可报销项目
+- 个人娱乐消费，例如电影、演唱会。
+- 酒店迷你吧消费。
+- 旅行保险，已由公司统一保险覆盖。

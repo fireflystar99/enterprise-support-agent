@@ -78,7 +78,7 @@ class SupportAgent:
         chunk_ids = ",".join(c.id for c in chunks)
 
         if route is Route.TICKET:
-            reason = "Evidence insufficient or sensitive action requested"
+            reason = "证据不足，或请求涉及敏感操作"
             risk_level = "high" if calculate_risk_score(question) > 0 else "low"
             ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
             latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
@@ -106,10 +106,10 @@ class SupportAgent:
             from app.support.grounding import validate_grounding
             citation_ids = [c.chunk_id for c in citations]
             if not validate_grounding(answer, citation_ids):
-                ticket = ticket_service.create(question, reason="Answer grounding failed", risk_level="high")
+                ticket = ticket_service.create(question, reason="回答未通过来源验证", risk_level="high")
                 latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
                 response = ChatResponse(
-                    answer="无法验证答案来源，已转交技术支持处理。",
+                    answer="无法验证答案来源，已转交技术支持团队处理。",
                     citations=[],
                     confidence="low",
                     route="ticket",

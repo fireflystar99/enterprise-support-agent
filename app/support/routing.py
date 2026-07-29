@@ -24,6 +24,13 @@ SENSITIVE_PATTERNS: list[str] = [
     # system / infra changes
     r"\bshut\s*down\b", r"\breboot\b.*\bserver\b", r"\brestart\b.*\bservice\b",
     r"\bdelete\b.*\bdatabase\b", r"\bdrop\b.*\btable\b",
+    # Chinese password / permission / privacy / infrastructure actions
+    r"重置.*密码", r"修改.*密码", r"忘记.*密码", r"找回.*密码",
+    r"开通.*权限", r"授予.*权限", r"提升.*权限", r"升级.*权限",
+    r"管理员权限", r"生产环境.*权限", r"四级.*权限",
+    r"导出.*(个人信息|员工数据|数据)", r"(个人信息|员工数据).*(泄露|暴露)",
+    r"关闭.*服务器", r"重启.*服务器", r"删除.*数据库", r"删除.*数据表",
+    r"绕过.*审批", r"禁用.*多因素认证", r"关闭.*MFA",
 ]
 
 import re

@@ -1,22 +1,21 @@
-# VPN Access FAQ
+# 办公 IT 与账号权限服务指引
 
-## Connection Issues
-If you cannot connect to the VPN, try these steps:
-1. Restart the VPN client
-2. Check your internet connection
-3. Verify your credentials are correct
-4. Contact IT Support if the issue persists
+## VPN 连接故障
+无法连接公司 VPN 时，请重启 VPN 客户端、确认网络连接正常并核对账号凭据；仍无法解决时请联系 IT 服务台。
 
-## Password Reset
-Password resets require IT Support to verify your identity. Call the IT help desk or submit a support ticket. VPN passwords cannot be reset through this system.
+## 密码重置
+密码重置必须由 IT 服务台完成身份核验后处理。本系统不会重置 VPN 密码，请提交支持工单或联系 IT 服务台。
 
-## Supported Clients
-- OpenVPN (version 2.5+)
-- WireGuard (version 0.5+)
-- Company VPN Client (version 3.0+)
+## 支持的客户端
+- OpenVPN 2.5 及以上版本。
+- WireGuard 0.5 及以上版本。
+- 智行科技办公 VPN 客户端 3.0 及以上版本。
 
-## Access Levels
-- Level 1: Email and intranet only
-- Level 2: Internal tools and databases
-- Level 3: Production systems (requires manager approval)
-- Level 4: Admin access (requires VP approval)
+## 权限等级
+- 一级：企业邮箱和内网门户。
+- 二级：内部业务工具和数据库。
+- 三级：生产环境只读权限，需主管审批。
+- 四级：生产环境管理员权限，需副总裁审批。
+
+## 高风险操作
+生产环境管理员权限开通、账号权限升级、密码重置和员工数据导出均由人工团队核验，本系统仅创建工单，不执行操作。
