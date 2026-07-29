@@ -21,6 +21,16 @@ uv run streamlit run app/ui/streamlit_app.py --server.port 8501
 
 浏览器打开 `http://localhost:8501`。数据库 Docker 卷未删除时，后续重启只需启动数据库、API 和 Streamlit。
 
+### 管理工单
+
+另开一个 PowerShell 窗口运行：
+
+```powershell
+uv run streamlit run app/ui/ticket_management.py --server.port 8502
+```
+
+浏览器打开 `http://localhost:8502`，输入 API 地址和与 API 服务 `ADMIN_TOKEN` 一致的管理员令牌。管理页可以按状态、风险等级筛选工单，并将工单更新为“处理中”或“已解决”。
+
 ## 中文演示问题
 
 - `差旅报销应在多久内提交？`

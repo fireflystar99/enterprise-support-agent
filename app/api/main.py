@@ -4,13 +4,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 
 from app.api.rate_limit import RateLimitMiddleware
-from app.api.schemas import ChatRequest, ChatResponse
+from app.api.schemas import (
+    ChatRequest,
+    ChatResponse,
+    TicketStatus,
+    TicketStatusUpdateRequest,
+)
 from app.core.config import settings, validate_production_config
 from app.core.experiment_config import load_config
 from app.db.models import QueryTrace
 from app.db.session import SessionLocal
 from app.retrieval.service import warm_embedding_model
 from app.support.agent import support_agent
+from app.support.tickets import TicketDatabaseError, ticket_service
 
 
 @asynccontextmanager
@@ -67,8 +73,43 @@ def get_trace(trace_id: str, x_admin_token: str | None = Header(None)) -> dict:
 @app.get("/tickets/{ticket_id}")
 def get_ticket(ticket_id: str, x_admin_token: str | None = Header(None)) -> dict:
     _verify_admin(x_admin_token)
-    from app.support.tickets import ticket_service
-    record = ticket_service.get(ticket_id)
+    try:
+        record = ticket_service.get(ticket_id)
+    except TicketDatabaseError as exc:
+        raise HTTPException(status_code=503, detail="Ticket service unavailable") from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return record.model_dump()
+
+
+@app.get("/tickets")
+def list_tickets(
+    status: TicketStatus | None = None,
+    risk_level: str | None = None,
+    x_admin_token: str | None = Header(None),
+) -> list[dict]:
+    _verify_admin(x_admin_token)
+    try:
+        records = ticket_service.list(status=status, risk_level=risk_level)
+    except TicketDatabaseError as exc:
+        raise HTTPException(status_code=503, detail="Ticket service unavailable") from exc
+    return [
+        record.model_dump(mode="json")
+        for record in records
+    ]
+
+
+@app.patch("/tickets/{ticket_id}")
+def update_ticket_status(
+    ticket_id: str,
+    request: TicketStatusUpdateRequest,
+    x_admin_token: str | None = Header(None),
+) -> dict:
+    _verify_admin(x_admin_token)
+    try:
+        record = ticket_service.update_status(ticket_id, request.status)
+    except TicketDatabaseError as exc:
+        raise HTTPException(status_code=503, detail="Ticket service unavailable") from exc
+    if record is None:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return record.model_dump(mode="json")

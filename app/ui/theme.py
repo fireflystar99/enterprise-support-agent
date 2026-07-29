@@ -12,5 +12,9 @@ def theme_css(theme: str) -> str:
     .saas-card {{ background: {surface}; color: {text}; border-radius: 16px; padding: 20px; margin: 10px 0; border: 1px solid {muted}33; }}
     .hero {{ padding: 18px 0 8px; }} .muted {{ color: {muted}; }}
     .status {{ color: {primary}; font-weight: 700; }}
+    .ticket-meta {{ color: {muted}; font-size: 0.88rem; }}
+    .risk-high {{ color: #DC2626; font-weight: 700; }}
+    .risk-medium {{ color: #D97706; font-weight: 700; }}
+    .risk-low {{ color: {primary}; font-weight: 700; }}
     </style>
     """

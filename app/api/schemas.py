@@ -22,3 +22,10 @@ class ChatResponse(BaseModel):
     ticket_id: str | None = None
     trace_id: str
     latency_ms: int
+
+
+TicketStatus = Literal["open", "in_progress", "resolved"]
+
+
+class TicketStatusUpdateRequest(BaseModel):
+    status: TicketStatus
