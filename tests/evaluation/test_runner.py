@@ -1,8 +1,9 @@
 
 
-from app.evaluation.metrics import aggregate
-from app.evaluation.dataset import load_golden, split_dataset
 from pathlib import Path
+
+from app.evaluation.dataset import load_golden, split_dataset
+from app.evaluation.metrics import aggregate
 
 
 def test_chinese_golden_set_keeps_stable_splits() -> None:
