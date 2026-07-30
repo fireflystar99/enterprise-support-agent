@@ -55,10 +55,6 @@ scripts/         # 演示数据初始化、评估与 Docker 启动脚本
 
 `Streamlit 页面 → FastAPI /chat → SupportAgent → 安全路由 → 三层检索 → 带引用回答 / 创建工单 → 写入 QueryTrace`
 
-### 面试表达
-
-> 我实现了一个中文企业内部支持 Agent，包含 pgvector 密集向量检索、中文 BM25 词法检索、RRF 融合和 BGE 重排序；同时加入权限过滤、敏感操作工单兜底、查询 Trace、评测配置和 Docker 化部署，使其具备企业落地所需的安全性、可观测性与可迭代性。
-
 ## 启动顺序
 
 ### 检索模型下载与降级
