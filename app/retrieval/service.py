@@ -21,6 +21,16 @@ def _demo_search(question: str) -> list[RetrievedChunk]:
     for keyword, chunk in _DEMO_CHUNKS.items():
         if keyword in normalized:
             results.append(chunk)
+    # Chinese fallback keywords for demo mode
+    if not results:
+        if "报销" in normalized or "提交" in normalized or "差旅" in normalized or "多久" in normalized:
+            results.append(_DEMO_CHUNKS["expense"])
+        if "报销" in normalized or "审批" in normalized or "金额" in normalized:
+            results.append(_DEMO_CHUNKS["receipt"])
+        if "报销" in normalized or "航班" in normalized or "商务" in normalized or "经济舱" in normalized:
+            results.append(_DEMO_CHUNKS["travel"])
+    if not results and ("vpn" in normalized or "密码" in normalized or "连接" in normalized):
+        results.append(_DEMO_CHUNKS["vpn"])
     return results[:3]
 
 
