@@ -67,6 +67,20 @@ $env:HF_ENDPOINT = "https://huggingface.co"
 
 模型下载完成后，服务会复用本地缓存。若重排序模型不可用（例如网络不可达或模型文件缺失），检索不会阻止服务启动，而会安全降级为仅使用 RRF 融合排序的结果。
 
+### DeepSeek 生成与流式回答
+
+普通知识库问题会先完成安全路由与三层混合检索，再调用 DeepSeek 生成中文回答；页面通过 `/chat/stream` 逐字显示生成结果。敏感请求、无可用证据、模型调用失败或回答缺少来源编号时，不会调用或不会采用模型回答，而是自动创建支持工单。
+
+在 API 启动窗口设置 DeepSeek 密钥（PowerShell）：
+
+```powershell
+$env:LLM_API_KEY = "sk-你的-DeepSeek-API-Key"
+$env:LLM_BASE_URL = "https://api.deepseek.com"
+$env:LLM_MODEL = "deepseek-v4-flash"
+```
+
+也可以将相同配置写入项目根目录的 `.env`。请勿将真实密钥提交到 Git。
+
 首次启动或重新写入演示知识库时，在项目目录依次运行：
 
 ```powershell
@@ -110,6 +124,6 @@ uv run pytest -m "not integration" -v
 
 ## 已知限制
 
-- 当前普通回答路径为检索文本拼接并附来源，不是 LLM 生成回答。
+- 普通回答依赖已配置的 DeepSeek API；模型不可用时会安全降级为创建支持工单，而不会编造答案。
 - 权限映射为演示实现，真实企业应接入 SSO/OIDC。
 - 演示制度和数据均为虚构内容。
