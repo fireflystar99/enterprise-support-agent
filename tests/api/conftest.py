@@ -38,6 +38,9 @@ def _mock_deps(monkeypatch) -> Generator[None, None, None]:
     fake_model = MagicMock()
     fake_model.encode = MagicMock(return_value=_FakeEncoding([[0.0] * 1024]))
 
+    fake_reranker = MagicMock()
+    fake_reranker.predict = MagicMock(return_value=[0.0])
+
     mock_chunk = _make_mock_chunk()
     mock_session = MagicMock()
     mock_session.__enter__ = MagicMock(return_value=mock_session)
@@ -53,6 +56,7 @@ def _mock_deps(monkeypatch) -> Generator[None, None, None]:
 
     with (
         patch("sentence_transformers.SentenceTransformer", return_value=fake_model),
+        patch("sentence_transformers.CrossEncoder", return_value=fake_reranker),
         patch("app.db.session.SessionLocal", return_value=mock_session),
         # Module-level aliases imported before patch takes effect
         patch("app.support.agent.SessionLocal", return_value=mock_session),

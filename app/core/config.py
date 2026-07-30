@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # Embedding
     embedding_model: str = "BAAI/bge-m3"
     embedding_dim: int = 1024
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
     # Database
     database_url: str = "postgresql+psycopg://app:app@localhost:5432/support_agent"

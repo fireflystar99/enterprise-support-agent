@@ -8,9 +8,10 @@ from pydantic import BaseModel
 
 
 class RetrievalConfig(BaseModel):
-    mode: Literal["vector", "hybrid"] = "vector"
+    mode: Literal["vector", "hybrid", "three_stage"] = "vector"
     top_k: int = 3
     rerank_top_n: int = 3
+    rerank: bool = False
 
 
 class GroundingConfig(BaseModel):
