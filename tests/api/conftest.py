@@ -58,6 +58,10 @@ def _mock_deps(monkeypatch) -> Generator[None, None, None]:
         patch("sentence_transformers.SentenceTransformer", return_value=fake_model),
         patch("sentence_transformers.CrossEncoder", return_value=fake_reranker),
         patch("app.db.session.SessionLocal", return_value=mock_session),
+        patch(
+            "app.support.agent.generate_answer",
+            return_value="Submit receipts within 30 calendar days. [1]",
+        ),
         # Module-level aliases imported before patch takes effect
         patch("app.support.agent.SessionLocal", return_value=mock_session),
         patch("app.api.main.SessionLocal", return_value=mock_session),

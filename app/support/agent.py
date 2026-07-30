@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from app.api.schemas import ChatResponse, Citation
 from app.db.models import QueryTrace
 from app.db.session import SessionLocal
-from app.llm.deepseek import DeepSeekError, generate_answer
+from app.llm.deepseek import DeepSeekError, generate_answer, stream_answer
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
 from app.support.routing import Route, calculate_risk_score, decide_route
@@ -190,6 +190,73 @@ class SupportAgent:
         # 成功回答也写入 Trace，便于审计、问题复盘和后续离线评估。
         self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
         return response
+
+    def stream(
+        self,
+        question: str,
+        department: str | None = None,
+        config: "ExperimentConfig | None" = None,
+    ):
+        """以 token 事件流式输出安全回答，最后发送 metadata 或 error。"""
+        trace_id = str(uuid.uuid4())
+        start = time.monotonic_ns()
+        top_k = config.retrieval.top_k if config else 3
+        retrieval_mode = config.retrieval.mode if config else "vector"
+        if retrieval_mode in {"hybrid", "three_stage"}:
+            chunks = self._retrieval.hybrid_search(
+                question, department=department, limit=top_k,
+                rerank=config.retrieval.rerank, rerank_top_n=config.retrieval.rerank_top_n,
+            )
+        else:
+            chunks = self._retrieval.search(question, department=department, limit=top_k)
+
+        if config is not None and config.grounding.access_filter:
+            from app.support.grounding import (
+                filter_by_access_level,
+                resolve_access_level,
+            )
+            chunks = filter_by_access_level(chunks, resolve_access_level(department))
+
+        chunk_ids = ",".join(c.id for c in chunks)
+        if decide_route(question, len(chunks)) is Route.TICKET:
+            response = self._ticket_response(
+                question, trace_id, chunk_ids, start,
+                "证据不足，或请求涉及敏感操作",
+                "high" if calculate_risk_score(question) > 0 else "low",
+            )
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        citations = [Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200]) for c in chunks]
+        mandatory = config is not None and config.grounding.enabled and config.grounding.mandatory_citations
+        tokens: list[str] = []
+        try:
+            for token in stream_answer(question, [chunk.content for chunk in chunks]):
+                tokens.append(token)
+                yield "token", {"text": token}
+        except DeepSeekError:
+            if tokens:
+                yield "error", {"message": "回答生成中断，请稍后重试。"}
+                return
+            response = self._ticket_response(question, trace_id, chunk_ids, start, "语言模型暂时不可用", "low")
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        answer = "".join(tokens).strip()
+        from app.support.grounding import validate_grounding
+        if mandatory and not validate_grounding(answer, [c.chunk_id for c in citations]):
+            response = self._ticket_response(question, trace_id, chunk_ids, start, "回答未通过来源验证", "high")
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
+        response = ChatResponse(
+            answer=answer, citations=citations,
+            confidence="high" if len(chunks) >= 2 else "medium",
+            route="answer", trace_id=trace_id, latency_ms=latency_ms,
+        )
+        self._persist_trace(trace_id, question, chunk_ids, answer, response.route, response.confidence, None, latency_ms)
+        yield "metadata", response.model_dump(mode="json")
 
 
 support_agent = SupportAgent()

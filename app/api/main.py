@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.api.rate_limit import RateLimitMiddleware
 from app.api.schemas import (
@@ -10,6 +11,7 @@ from app.api.schemas import (
     TicketStatus,
     TicketStatusUpdateRequest,
 )
+from app.api.sse import encode_sse
 from app.core.config import settings, validate_production_config
 from app.core.experiment_config import load_config
 from app.db.models import QueryTrace
@@ -57,6 +59,18 @@ def health() -> dict[str, str]:
 def chat(request: ChatRequest) -> ChatResponse:
     # API 层只负责协议转换；检索、安全路由和持久化都由 SupportAgent 编排。
     return support_agent.handle(request.question, request.department, config=_production_config)
+
+
+@app.post("/chat/stream")
+def chat_stream(request: ChatRequest) -> StreamingResponse:
+    """以 SSE 转发 Agent 的增量回答与最终元数据。"""
+    events = (
+        encode_sse(event, payload)
+        for event, payload in support_agent.stream(
+            request.question, request.department, config=_production_config
+        )
+    )
+    return StreamingResponse(events, media_type="text/event-stream")
 
 
 @app.get("/traces/{trace_id}")
