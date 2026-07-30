@@ -2,6 +2,8 @@ import logging
 import time
 
 from app.core.config import settings
+from app.retrieval.bm25 import bm25_rank
+from app.retrieval.reranker import rerank_candidates
 from app.retrieval.types import RetrievedChunk
 
 _embedding_model = None
@@ -58,6 +60,20 @@ def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:
 class RetrievalService:
     """V1: vector search. V2: hybrid vector + text search via RRF."""
 
+    def __init__(self) -> None:
+        self.last_timings = self._empty_timings()
+
+    @staticmethod
+    def _empty_timings() -> dict[str, int]:
+        return {
+            "embedding_ms": 0,
+            "vector_search_ms": 0,
+            "bm25_ms": 0,
+            "fusion_ms": 0,
+            "rerank_ms": 0,
+            "total_ms": 0,
+        }
+
     def search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
         if settings.app_env == "demo":
             return _demo_search(question)
@@ -65,6 +81,8 @@ class RetrievalService:
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
+        total_started = time.perf_counter()
+        self.last_timings = self._empty_timings()
         started = time.perf_counter()
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
@@ -81,7 +99,7 @@ class RetrievalService:
             rows = q.limit(limit).all()
             self.last_timings["vector_search_ms"] = int((time.perf_counter() - started) * 1000)
 
-            return [
+            result = [
                 RetrievedChunk(
                     id=str(row.id),
                     content=row.content,
@@ -93,16 +111,29 @@ class RetrievalService:
                 )
                 for row in rows
             ]
+            self.last_timings["total_ms"] = int(
+                (time.perf_counter() - total_started) * 1000
+            )
+            return result
         finally:
             session.close()
 
-    def hybrid_search(self, question: str, department: str | None = None, limit: int = 3) -> list[RetrievedChunk]:
+    def hybrid_search(
+        self,
+        question: str,
+        department: str | None = None,
+        limit: int = 3,
+        *,
+        rerank: bool = False,
+    ) -> list[RetrievedChunk]:
         if settings.app_env == "demo":
             return _demo_search(question)
 
         from app.db.models import Chunk
         from app.db.session import SessionLocal
 
+        total_started = time.perf_counter()
+        self.last_timings = self._empty_timings()
         started = time.perf_counter()
         model = _get_embedding_model()
         query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
@@ -114,17 +145,21 @@ class RetrievalService:
             if department:
                 base = base.filter(Chunk.department == department)
 
+            candidate_limit = limit * 4
             started = time.perf_counter()
             vector_rows = base.order_by(
                 Chunk.embedding.cosine_distance(query_embedding)
-            ).limit(limit * 4).all()
+            ).limit(candidate_limit).all()
             self.last_timings["vector_search_ms"] = int((time.perf_counter() - started) * 1000)
 
             started = time.perf_counter()
-            text_rows = base.filter(
-                Chunk.content.ilike(f"%{question.split()[0]}%")
-            ).limit(limit * 2).all()
-            self.last_timings["text_search_ms"] = int((time.perf_counter() - started) * 1000)
+            rows = base.all()
+            bm25_indexes = bm25_rank(
+                question,
+                [row.content for row in rows],
+            )[:candidate_limit]
+            bm25_rows = [rows[index] for index in bm25_indexes]
+            self.last_timings["bm25_ms"] = int((time.perf_counter() - started) * 1000)
 
             def row_key(row: Chunk) -> str:
                 return str(row.id)
@@ -133,13 +168,13 @@ class RetrievalService:
             all_ids: dict[str, float] = {}
             for rank, row in enumerate(vector_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
-            for rank, row in enumerate(text_rows, 1):
+            for rank, row in enumerate(bm25_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
 
-            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:limit]
+            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:candidate_limit]
 
-            id_map = {row_key(row): row for row in vector_rows + text_rows}
-            result = [
+            id_map = {row_key(row): row for row in vector_rows + bm25_rows}
+            candidates = [
                 RetrievedChunk(
                     id=str(id_map[rid].id),
                     content=id_map[rid].content,
@@ -152,15 +187,21 @@ class RetrievalService:
                 for rid in ranked_ids if rid in id_map
             ]
             self.last_timings["fusion_ms"] = int((time.perf_counter() - started) * 1000)
-            if sum(self.last_timings.values()) > 1000:
+
+            started = time.perf_counter()
+            if rerank:
+                try:
+                    candidates = rerank_candidates(question, candidates)
+                except OSError:
+                    logger.warning("Reranker unavailable; using RRF ordering")
+            self.last_timings["rerank_ms"] = int((time.perf_counter() - started) * 1000)
+
+            result = candidates[:limit]
+            self.last_timings["total_ms"] = int(
+                (time.perf_counter() - total_started) * 1000
+            )
+            if self.last_timings["total_ms"] > 1000:
                 logger.warning("Slow retrieval: %s", self.last_timings)
             return result
         finally:
             session.close()
-    def __init__(self) -> None:
-        self.last_timings = {
-            "embedding_ms": 0,
-            "vector_search_ms": 0,
-            "text_search_ms": 0,
-            "fusion_ms": 0,
-        }
