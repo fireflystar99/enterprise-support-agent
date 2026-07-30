@@ -59,13 +59,13 @@ class SupportAgent:
         top_k = config.retrieval.top_k if config else 3
         retrieval_mode = config.retrieval.mode if config else "vector"
 
-        if retrieval_mode == "hybrid":
+        if retrieval_mode in {"hybrid", "three_stage"}:
             chunks = self._retrieval.hybrid_search(
-                question, department=department, limit=top_k, rerank=False
-            )
-        elif retrieval_mode == "three_stage":
-            chunks = self._retrieval.hybrid_search(
-                question, department=department, limit=top_k, rerank=True
+                question,
+                department=department,
+                limit=top_k,
+                rerank=config.retrieval.rerank,
+                rerank_top_n=config.retrieval.rerank_top_n,
             )
         else:
             chunks = self._retrieval.search(question, department=department, limit=top_k)

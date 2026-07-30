@@ -35,6 +35,9 @@ class _FakeQuery:
             limits=self.limits,
         )
 
+    def options(self, *_options):
+        return self
+
     def limit(self, value):
         self.requested_limit = value
         self.limits.append(value)
@@ -126,6 +129,27 @@ def test_hybrid_search_reranks_only_when_requested(monkeypatch) -> None:
         chunk.id for chunk in reversed(reranker_calls[0][1])
     ][:2]
     assert 8 in session.query_object.limits
+
+
+def test_hybrid_search_limits_bm25_candidates_to_twice_top_k(monkeypatch) -> None:
+    session = _install_hybrid_dependencies(monkeypatch)
+    session.query_object.rows = [
+        _row(str(index), f"expense policy section {index}")
+        for index in range(10)
+    ]
+    session.query_object.vector_rows = []
+    seen = []
+
+    monkeypatch.setattr(service_module, "bm25_rank", lambda *_args: list(range(10)))
+    monkeypatch.setattr(
+        service_module,
+        "rerank_candidates",
+        lambda _question, candidates: seen.extend(candidates) or candidates,
+    )
+
+    RetrievalService().hybrid_search("expense", limit=2, rerank=True)
+
+    assert len(seen) == 4
 
 
 def test_hybrid_search_falls_back_to_rrf_when_reranker_is_unavailable(

@@ -125,6 +125,7 @@ class RetrievalService:
         limit: int = 3,
         *,
         rerank: bool = False,
+        rerank_top_n: int | None = None,
     ) -> list[RetrievedChunk]:
         if settings.app_env == "demo":
             return _demo_search(question)
@@ -145,19 +146,31 @@ class RetrievalService:
             if department:
                 base = base.filter(Chunk.department == department)
 
-            candidate_limit = limit * 4
+            vector_candidate_limit = limit * 4
+            text_candidate_limit = limit * 2
             started = time.perf_counter()
             vector_rows = base.order_by(
                 Chunk.embedding.cosine_distance(query_embedding)
-            ).limit(candidate_limit).all()
+            ).limit(vector_candidate_limit).all()
             self.last_timings["vector_search_ms"] = int((time.perf_counter() - started) * 1000)
 
             started = time.perf_counter()
-            rows = base.all()
+            from sqlalchemy.orm import load_only
+
+            rows = base.options(
+                load_only(
+                    Chunk.id,
+                    Chunk.content,
+                    Chunk.title,
+                    Chunk.section,
+                    Chunk.access_level,
+                    Chunk.department,
+                )
+            ).all()
             bm25_indexes = bm25_rank(
                 question,
                 [row.content for row in rows],
-            )[:candidate_limit]
+            )[:text_candidate_limit]
             bm25_rows = [rows[index] for index in bm25_indexes]
             self.last_timings["bm25_ms"] = int((time.perf_counter() - started) * 1000)
 
@@ -171,7 +184,7 @@ class RetrievalService:
             for rank, row in enumerate(bm25_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
 
-            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)[:candidate_limit]
+            ranked_ids = sorted(all_ids, key=all_ids.get, reverse=True)
 
             id_map = {row_key(row): row for row in vector_rows + bm25_rows}
             candidates = [
@@ -191,7 +204,9 @@ class RetrievalService:
             started = time.perf_counter()
             if rerank:
                 try:
-                    candidates = rerank_candidates(question, candidates)
+                    rerank_limit = rerank_top_n or len(candidates)
+                    reranked = rerank_candidates(question, candidates[:rerank_limit])
+                    candidates = reranked + candidates[rerank_limit:]
                 except OSError:
                     logger.warning("Reranker unavailable; using RRF ordering")
             self.last_timings["rerank_ms"] = int((time.perf_counter() - started) * 1000)
