@@ -37,7 +37,7 @@ settings = Settings()
 
 
 def validate_production_config() -> None:
-    """Raise startup failure when production env has insecure defaults."""
+    """生产环境配置校验，缺失必要配置时阻止启动。"""
     if settings.app_env == "production":
         if not settings.admin_token:
             raise RuntimeError(

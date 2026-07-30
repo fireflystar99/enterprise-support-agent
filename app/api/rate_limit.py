@@ -1,4 +1,4 @@
-"""Simple in-memory rate limiter for FastAPI."""
+"""FastAPI 的内存限流中间件。"""
 import time
 from collections import defaultdict
 

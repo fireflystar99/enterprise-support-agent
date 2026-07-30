@@ -18,7 +18,7 @@ def _get_reranker():
 
 
 def warm_reranker_model() -> None:
-    """Load the reranker before user traffic arrives when possible."""
+    """应用启动时预先加载 reranker 模型。"""
     try:
         _get_reranker()
     except OSError:
@@ -26,7 +26,7 @@ def warm_reranker_model() -> None:
 
 
 def rerank_candidates(question: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
-    """Return chunks sorted by cross-encoder relevance score."""
+    """按 cross-encoder 相关性分数对 Chunk 排序。"""
     if not chunks:
         return []
 

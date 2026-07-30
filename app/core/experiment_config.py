@@ -1,4 +1,4 @@
-"""Experiment configuration loader."""
+"""实验配置加载器。"""
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -29,7 +29,7 @@ class ExperimentConfig(BaseModel):
 
 @lru_cache(maxsize=8)
 def load_config(version: str, configs_dir: Path | None = None) -> ExperimentConfig:
-    """Load and validate a versioned experiment configuration."""
+    """加载并校验版本化实验配置。"""
     config_path = (configs_dir or Path("configs")) / f"{version}.yaml"
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration not found: {config_path}")

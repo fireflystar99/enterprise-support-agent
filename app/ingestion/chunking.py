@@ -21,7 +21,7 @@ def chunk_markdown(
     max_size: int = 800,
     overlap: int = 120,
 ) -> list[ChunkDraft]:
-    """Split Markdown by headings into chunks with metadata."""
+    """按 Markdown 标题拆分文档为带元数据的分块。"""
     lines = text.split("\n")
     chunks: list[ChunkDraft] = []
     current_section = ""

@@ -1,10 +1,10 @@
-"""LLM-as-judge for answer faithfulness evaluation. Optional: requires API key."""
+"""LLM 评估器——可选的答案忠实度评分。需要 API key。"""
 from app.core.config import settings
 
 
 def judge_answer_faithfulness(expected: str, actual: str) -> int | None:
-    """Rate semantic equivalence between expected and actual answer (1-5).
-    Returns None when LLM is not configured."""
+    """评估预期答案与实际答案的语义等价程度（1-5 分）。
+    LLM 未配置时返回 None。"""
     if not settings.llm_api_key or not expected.strip() or not actual.strip():
         return None
 

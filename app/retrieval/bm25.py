@@ -1,4 +1,4 @@
-"""Dependency-free BM25 ranking for Chinese and ASCII text."""
+"""无外部依赖的 BM25 中文/英文文本排序。"""
 
 import re
 from collections import Counter
@@ -9,7 +9,7 @@ _TOKEN_PATTERN = re.compile(r"[A-Za-z]+|\d+|[\u4e00-\u9fff]+")
 
 
 def tokenize_chinese(text: str) -> list[str]:
-    """Extract ASCII words, numbers, Chinese spans, and Chinese bigrams."""
+    """提取 ASCII 单词、数字、中文片段和中文二元组。"""
     tokens: list[str] = []
     for match in _TOKEN_PATTERN.finditer(text):
         term = match.group()
@@ -22,7 +22,7 @@ def tokenize_chinese(text: str) -> list[str]:
 
 
 def bm25_rank(query: str, documents: Sequence[str]) -> list[int]:
-    """Return document indexes ordered by descending BM25 relevance score."""
+    """按 BM25 相关性分数降序返回文档索引。"""
     if not documents:
         return []
 

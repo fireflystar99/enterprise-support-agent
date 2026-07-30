@@ -37,7 +37,7 @@ import re
 
 
 def calculate_risk_score(question: str) -> int:
-    """Return count of matched sensitive patterns (0 = safe)."""
+    """计算问题中匹配的敏感模式数量（0 = 安全）。"""
     normalized = question.lower()
     matches = 0
     for pattern in SENSITIVE_PATTERNS:
@@ -47,7 +47,7 @@ def calculate_risk_score(question: str) -> int:
 
 
 def decide_route(question: str, evidence_count: int) -> Route:
-    """Route to TICKET when evidence is missing or question is sensitive."""
+    """证据不足或问题敏感时路由到工单。"""
     if evidence_count == 0:
         return Route.TICKET
     if calculate_risk_score(question) > 0:

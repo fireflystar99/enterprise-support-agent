@@ -4,7 +4,7 @@ from app.retrieval.types import RetrievedChunk
 
 
 def validate_grounding(answer: str, citations: list[str]) -> bool:
-    """Return True only when the answer has content AND at least one citation reference."""
+    """仅当回答有内容且包含引用标记时返回 True。"""
     if not answer.strip():
         return False
     if not citations:
@@ -14,7 +14,7 @@ def validate_grounding(answer: str, citations: list[str]) -> bool:
 
 
 def filter_by_access_level(chunks: list[RetrievedChunk], user_access: str) -> list[RetrievedChunk]:
-    """Filter chunks by minimum access level."""
+    """按最小访问级别过滤 Chunk。"""
     access_order = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
     user_level = access_order.get(user_access, 0)
     return [
@@ -24,7 +24,7 @@ def filter_by_access_level(chunks: list[RetrievedChunk], user_access: str) -> li
 
 
 def resolve_access_level(department: str | None) -> str:
-    """Map a department to a minimum access level for filtering."""
+    """根据部门映射访问级别。"""
     if department in ("Finance", "IT", "HR"):
         return "internal"
     if department in ("Legal", "Executive"):

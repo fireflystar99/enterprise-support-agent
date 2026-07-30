@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class SupportAgent:
-    """Support agent — uses search_knowledge_base and create_ticket tools."""
+    """支持代理 —— 使用知识库检索和工单创建工具处理员工咨询。"""
 
     def __init__(self, retrieval_service: RetrievalService | None = None) -> None:
         self._retrieval = retrieval_service or RetrievalService()

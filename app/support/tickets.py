@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class TicketDatabaseError(RuntimeError):
-    """Raised when ticket persistence is unavailable."""
+    """工单持久化不可用时抛出的异常。"""
 
 
 class TicketRecord(BaseModel):
@@ -18,7 +18,7 @@ class TicketRecord(BaseModel):
 
 
 class TicketService:
-    """Ticket creation with in-memory cache and optional database persistence."""
+    """带内存缓存的工单服务，可选数据库持久化。"""
 
     def __init__(self) -> None:
         self._store: dict[str, TicketRecord] = {}
@@ -89,7 +89,7 @@ class TicketService:
     def list(
         self, status: str | None = None, risk_level: str | None = None
     ) -> list[TicketRecord]:
-        """Return persisted tickets in reverse creation order."""
+        """按创建时间倒序返回已持久化的工单。"""
         try:
             from app.db.models import Ticket as TicketModel
             from app.db.session import SessionLocal
@@ -116,7 +116,7 @@ class TicketService:
             raise TicketDatabaseError("Ticket database list failed") from exc
 
     def update_status(self, ticket_id: str, status: str) -> TicketRecord | None:
-        """Persist a ticket status change and refresh the in-memory cache."""
+        """持久化工单状态变更并刷新内存缓存。"""
         try:
             from app.db.models import Ticket as TicketModel
             from app.db.session import SessionLocal

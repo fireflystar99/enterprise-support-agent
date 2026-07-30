@@ -45,7 +45,7 @@ def _get_embedding_model():
 
 
 def warm_embedding_model() -> None:
-    """Load the embedding model during startup, before user traffic arrives."""
+    """应用启动时预先加载 embedding 模型。"""
     if settings.app_env == "demo":
         return
     try:
@@ -56,7 +56,7 @@ def warm_embedding_model() -> None:
 
 
 def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:
-    """Rank candidate texts by token overlap with the question."""
+    """按 Token 重叠度对候选文本排序。"""
     question_tokens = set(question.lower().split())
     scored = []
     for text in candidates:
@@ -68,7 +68,7 @@ def rank_by_token_overlap(question: str, candidates: list[str]) -> list[str]:
 
 
 class RetrievalService:
-    """V1: vector search. V2: hybrid vector + text search via RRF."""
+    """V1: 向量检索。V2: 向量 + 关键词混合检索（RRF）。"""
 
     def __init__(self) -> None:
         self.last_timings = self._empty_timings()

@@ -2,7 +2,7 @@ def reciprocal_rank_fusion(
     ranked_lists: list[list[str]],
     k: int = 60,
 ) -> list[str]:
-    """Fuse multiple ranked lists using Reciprocal Rank Fusion."""
+    """使用倒数排名融合（RRF）合并多个排序列表。"""
     scores: dict[str, float] = {}
     for ranked in ranked_lists:
         for rank, item in enumerate(ranked, 1):

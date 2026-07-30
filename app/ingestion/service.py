@@ -1,4 +1,4 @@
-"""Ingestion service — document loading, chunking, embedding, and pgvector storage."""
+"""文档摄入服务——加载、分块、编码 embedding、写入 pgvector。"""
 from pathlib import Path
 
 from app.ingestion.chunking import ChunkDraft, chunk_markdown
@@ -17,7 +17,7 @@ def _get_embedding_model():
 
 
 def ingest_documents(docs_dir: Path) -> list[ChunkDraft]:
-    """Load all markdown files from docs_dir, chunk, embed, and store in pgvector."""
+    """加载 docs_dir 下所有 markdown 文件并分块。"""
     all_chunks: list[ChunkDraft] = []
     for filepath in sorted(docs_dir.glob("*.md")):
         text = filepath.read_text(encoding="utf-8")
@@ -27,7 +27,7 @@ def ingest_documents(docs_dir: Path) -> list[ChunkDraft]:
 
 
 def ingest_to_db(docs_dir: Path, clear: bool = False) -> int:
-    """Load, chunk, embed, and write documents to pgvector. Returns chunk count."""
+    """加载、分块、编码 embedding 并写入 pgvector。返回 Chunk 数量。"""
     from app.db.models import Chunk, Document
     from app.db.session import SessionLocal
 
