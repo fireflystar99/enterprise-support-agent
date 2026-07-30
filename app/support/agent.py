@@ -57,10 +57,16 @@ class SupportAgent:
         start = time.monotonic_ns()
 
         top_k = config.retrieval.top_k if config else 3
-        use_hybrid = config is not None and config.retrieval.mode == "hybrid"
+        retrieval_mode = config.retrieval.mode if config else "vector"
 
-        if use_hybrid:
-            chunks = self._retrieval.hybrid_search(question, department=department, limit=top_k)
+        if retrieval_mode == "hybrid":
+            chunks = self._retrieval.hybrid_search(
+                question, department=department, limit=top_k, rerank=False
+            )
+        elif retrieval_mode == "three_stage":
+            chunks = self._retrieval.hybrid_search(
+                question, department=department, limit=top_k, rerank=True
+            )
         else:
             chunks = self._retrieval.search(question, department=department, limit=top_k)
 

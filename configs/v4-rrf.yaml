@@ -1,0 +1,6 @@
+version: v4-rrf
+description: "RRF-only retrieval experiment"
+retrieval:
+  mode: hybrid
+  top_k: 3
+  rerank: false

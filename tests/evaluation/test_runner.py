@@ -2,8 +2,20 @@
 
 from pathlib import Path
 
+from app.core.experiment_config import load_config
 from app.evaluation.dataset import load_golden, split_dataset
 from app.evaluation.metrics import aggregate
+
+
+def test_retrieval_config_accepts_three_stage_mode(tmp_path: Path) -> None:
+    (tmp_path / "v4-rerank.yaml").write_text(
+        "version: v4-rerank\nretrieval:\n  mode: three_stage\n",
+        encoding="utf-8",
+    )
+
+    config = load_config("v4-rerank", configs_dir=tmp_path)
+
+    assert config.retrieval.mode == "three_stage"
 
 
 def test_chinese_golden_set_keeps_stable_splits() -> None:
