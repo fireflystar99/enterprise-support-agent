@@ -22,6 +22,7 @@ def test_stream_answer_uses_configured_client_and_evidence(monkeypatch) -> None:
     assert list(stream_answer("如何报销？", ["报销须在 30 天内提交。 "])) == ["答案"]
     assert captured["stream"] is True
     assert "30 天内提交" in captured["messages"][1]["content"]
+    assert "[1]" in captured["messages"][0]["content"]
 
 
 def test_stream_answer_rejects_missing_api_key(monkeypatch) -> None:
