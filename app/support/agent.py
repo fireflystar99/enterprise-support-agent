@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from app.api.schemas import ChatResponse, Citation
 from app.db.models import QueryTrace
 from app.db.session import SessionLocal
+from app.llm.deepseek import DeepSeekError, generate_answer, stream_answer
 from app.retrieval.service import RetrievalService
 from app.retrieval.types import RetrievedChunk
 from app.support.routing import Route, calculate_risk_score, decide_route
@@ -52,6 +53,39 @@ class SupportAgent:
         finally:
             session.close()
 
+    def _ticket_response(
+        self,
+        question: str,
+        trace_id: str,
+        chunk_ids: str,
+        start: int,
+        reason: str,
+        risk_level: str,
+    ) -> ChatResponse:
+        """创建工单并持久化统一的低风险响应。"""
+        ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
+        latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
+        response = ChatResponse(
+            answer="您的请求已转交技术支持团队处理，工单已创建。",
+            citations=[],
+            confidence="low",
+            route="ticket",
+            ticket_id=ticket.id,
+            trace_id=trace_id,
+            latency_ms=latency_ms,
+        )
+        self._persist_trace(
+            trace_id,
+            question,
+            chunk_ids,
+            response.answer,
+            response.route,
+            response.confidence,
+            response.ticket_id,
+            latency_ms,
+        )
+        return response
+
     def handle(self, question: str, department: str | None = None, config: "ExperimentConfig | None" = None) -> ChatResponse:
         # 每次请求都生成可追踪 ID，并从入口开始统计端到端延迟。
         trace_id = str(uuid.uuid4())
@@ -90,19 +124,14 @@ class SupportAgent:
             # 工单是安全兜底，不执行密码重置、权限提升等真实系统操作。
             reason = "证据不足，或请求涉及敏感操作"
             risk_level = "high" if calculate_risk_score(question) > 0 else "low"
-            ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
-            latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
-            response = ChatResponse(
-                answer="您的请求已转交技术支持团队处理，工单已创建。",
-                citations=[],
-                confidence="low",
-                route="ticket",
-                ticket_id=ticket.id,
-                trace_id=trace_id,
-                latency_ms=latency_ms,
+            return self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                reason,
+                risk_level,
             )
-            self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
-            return response
 
         # 回答与引用从同一批检索证据构造，保证页面展示的来源可追溯。
         citations = [
@@ -112,25 +141,42 @@ class SupportAgent:
         answer = self._build_answer(chunks)
 
         # grounding check (V3)
-        mandatory = config is not None and config.grounding.enabled and config.grounding.mandatory_citations
+        mandatory = True
         if mandatory:
             from app.support.grounding import validate_grounding
             citation_ids = [c.chunk_id for c in citations]
             if not validate_grounding(answer, citation_ids):
                 # 即使检索到了内容，只要回答无法被来源验证，仍降级到人工工单。
-                ticket = ticket_service.create(question, reason="回答未通过来源验证", risk_level="high")
-                latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
-                response = ChatResponse(
-                    answer="无法验证答案来源，已转交技术支持团队处理。",
-                    citations=[],
-                    confidence="low",
-                    route="ticket",
-                    ticket_id=ticket.id,
-                    trace_id=trace_id,
-                    latency_ms=latency_ms,
+                return self._ticket_response(
+                    question,
+                    trace_id,
+                    chunk_ids,
+                    start,
+                    "回答未通过来源验证",
+                    "high",
                 )
-                self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
-                return response
+
+        try:
+            answer = generate_answer(question, [chunk.content for chunk in chunks])
+        except DeepSeekError:
+            return self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "语言模型暂时不可用",
+                "low",
+            )
+
+        if mandatory and not validate_grounding(answer, [c.chunk_id for c in citations]):
+            return self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "回答未通过来源验证",
+                "high",
+            )
 
         latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
         response = ChatResponse(
@@ -144,6 +190,104 @@ class SupportAgent:
         # 成功回答也写入 Trace，便于审计、问题复盘和后续离线评估。
         self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
         return response
+
+    def stream(
+        self,
+        question: str,
+        department: str | None = None,
+        config: "ExperimentConfig | None" = None,
+    ):
+        """以 token 事件流式输出安全回答，最后发送 metadata 或 error。"""
+        trace_id = str(uuid.uuid4())
+        start = time.monotonic_ns()
+        top_k = config.retrieval.top_k if config else 3
+        retrieval_mode = config.retrieval.mode if config else "vector"
+        if retrieval_mode in {"hybrid", "three_stage"}:
+            chunks = self._retrieval.hybrid_search(
+                question, department=department, limit=top_k,
+                rerank=config.retrieval.rerank, rerank_top_n=config.retrieval.rerank_top_n,
+            )
+        else:
+            chunks = self._retrieval.search(question, department=department, limit=top_k)
+
+        if config is not None and config.grounding.access_filter:
+            from app.support.grounding import (
+                filter_by_access_level,
+                resolve_access_level,
+            )
+            chunks = filter_by_access_level(chunks, resolve_access_level(department))
+
+        chunk_ids = ",".join(c.id for c in chunks)
+        if decide_route(question, len(chunks)) is Route.TICKET:
+            response = self._ticket_response(
+                question, trace_id, chunk_ids, start,
+                "证据不足，或请求涉及敏感操作",
+                "high" if calculate_risk_score(question) > 0 else "low",
+            )
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        citations = [Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200]) for c in chunks]
+        from app.support.grounding import validate_grounding
+
+        # 流式数据先缓冲到一个完整的引用标记，再向客户端发送。
+        # 这样无效来源编号不会在页面上提前出现。
+        tokens: list[str] = []
+        pending_segment = ""
+        citation_ids = [c.chunk_id for c in citations]
+        try:
+            for token in stream_answer(question, [chunk.content for chunk in chunks]):
+                tokens.append(token)
+                pending_segment += token
+                while "]" in pending_segment:
+                    segment, pending_segment = pending_segment.split("]", maxsplit=1)
+                    segment = f"{segment}]"
+                    if not validate_grounding(segment, citation_ids):
+                        response = self._ticket_response(
+                            question,
+                            trace_id,
+                            chunk_ids,
+                            start,
+                            "回答未通过来源验证",
+                            "high",
+                        )
+                        yield "metadata", response.model_dump(mode="json")
+                        return
+                    yield "token", {"text": segment}
+        except DeepSeekError:
+            # 即使已经收到部分 token，也必须创建工单并持久化 Trace。
+            response = self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "语言模型暂时不可用",
+                "low",
+            )
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        answer = "".join(tokens).strip()
+        if pending_segment.strip() or not validate_grounding(answer, citation_ids):
+            response = self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "回答未通过来源验证",
+                "high",
+            )
+            yield "metadata", response.model_dump(mode="json")
+            return
+
+        latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
+        response = ChatResponse(
+            answer=answer, citations=citations,
+            confidence="high" if len(chunks) >= 2 else "medium",
+            route="answer", trace_id=trace_id, latency_ms=latency_ms,
+        )
+        self._persist_trace(trace_id, question, chunk_ids, answer, response.route, response.confidence, None, latency_ms)
+        yield "metadata", response.model_dump(mode="json")
 
 
 support_agent = SupportAgent()

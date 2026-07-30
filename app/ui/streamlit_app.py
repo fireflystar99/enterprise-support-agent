@@ -1,6 +1,7 @@
 """智行科技内部员工助手的现代 SaaS 工作台。"""
 import httpx
 import streamlit as st
+from streaming import parse_sse_lines
 from theme import theme_css
 
 st.set_page_config(page_title="智行科技内部员工助手", page_icon="💬", layout="wide")
@@ -15,7 +16,7 @@ with st.sidebar:
     st.subheader("快捷咨询")
     examples = ["差旅报销应在多久内提交？", "国内出差住宿每晚报销上限是多少？", "公司 VPN 无法连接时应该怎么处理？", "请帮我重置 VPN 密码"]
     for index, example in enumerate(examples):
-        if st.button(example, key=f"example-{index}", use_container_width=True):
+        if st.button(example, key=f"example-{index}", width="stretch"):
             st.session_state["question"] = example
     st.info("密码重置、生产权限和数据导出等请求会自动转人工工单。")
 
@@ -23,23 +24,51 @@ st.markdown("<div class='saas-card'><h3>智能问答</h3><p class='muted'>请输
 question = st.text_area("问题", key="question", placeholder="例如：差旅报销应在多久内提交？", height=110)
 
 if st.button("开始咨询", type="primary") and question.strip():
-    with st.spinner("正在查询知识库…"):
+    st.markdown("<div class='saas-card'><h3>回答</h3></div>", unsafe_allow_html=True)
+    answer_placeholder = st.empty()
+    answer = ""
+    metadata: dict[str, object] | None = None
+    error_message: str | None = None
+
+    with st.spinner("正在检索知识库并生成回答…"):
         try:
-            response = httpx.post(f"{api_url}/chat", json={"question": question}, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            if data["route"] == "ticket":
-                st.warning(f"已转交支持工单\n\n工单编号：`{data['ticket_id']}`")
-            st.markdown("<div class='saas-card'><h3>回答</h3></div>", unsafe_allow_html=True)
-            st.write(data["answer"])
-            if data["citations"]:
-                st.markdown("<div class='saas-card'><h3>知识来源</h3></div>", unsafe_allow_html=True)
-                for citation in data["citations"]:
-                    st.caption(f"📄 {citation['title']}：{citation['excerpt'][:140]}…")
-            a, b, c = st.columns(3)
-            a.metric("置信度", data["confidence"])
-            b.metric("处理路径", data["route"])
-            c.metric("耗时", f"{data['latency_ms']}ms")
-            st.caption(f"追踪编号：`{data['trace_id']}`")
-        except httpx.RequestError as exc:
-            st.error(f"API 请求失败：{exc}")
+            with httpx.stream(
+                "POST",
+                f"{api_url}/chat/stream",
+                json={"question": question},
+                timeout=30,
+            ) as response:
+                response.raise_for_status()
+                for event, payload in parse_sse_lines(response.iter_lines()):
+                    if event == "token":
+                        answer += str(payload.get("text", ""))
+                        answer_placeholder.markdown(f"{answer}▌")
+                    elif event == "metadata":
+                        metadata = payload
+                    elif event == "error":
+                        error_message = str(payload.get("message", "回答生成失败，请稍后重试。"))
+        except (httpx.RequestError, ValueError) as exc:
+            error_message = f"API 请求失败：{exc}"
+
+    if answer:
+        answer_placeholder.markdown(answer)
+    if error_message:
+        st.error(error_message)
+    elif metadata is None:
+        st.error("未收到服务端最终结果，请稍后重试。")
+    else:
+        data = metadata
+        if data["route"] == "ticket":
+            st.warning(f"已转交支持工单\n\n工单编号：`{data['ticket_id']}`")
+            answer = ""
+            answer_placeholder.empty()
+            answer_placeholder.write(data["answer"])
+        if data["citations"]:
+            st.markdown("<div class='saas-card'><h3>知识来源</h3></div>", unsafe_allow_html=True)
+            for citation in data["citations"]:
+                st.caption(f"📄 {citation['title']}：{citation['excerpt'][:140]}…")
+        a, b, c = st.columns(3)
+        a.metric("置信度", data["confidence"])
+        b.metric("处理路径", data["route"])
+        c.metric("耗时", f"{data['latency_ms']}ms")
+        st.caption(f"追踪编号：`{data['trace_id']}`")

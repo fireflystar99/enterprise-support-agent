@@ -102,7 +102,7 @@ def stream_answer(question: str, evidence: list[str]) -> Iterator[str]:
         raise DeepSeekError("DeepSeek generation failed") from exc
 ```
 
-系统提示词必须要求“只根据证据回答、使用中文、不编造制度、不执行敏感动作”，`_build_user_prompt()` 使用编号证据块并限制为调用方传入的文本。
+系统提示词必须要求“只根据证据回答、使用中文、不编造制度、不执行敏感动作，并在每个结论后添加对应的 `[编号]` 引用”；`_build_user_prompt()` 使用编号证据块并限制为调用方传入的文本。
 
 - [ ] **Step 4: 更新配置默认值**
 

@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     # LLM
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com"
-    llm_model: str = "deepseek-chat"
+    llm_model: str = "deepseek-v4-flash"
+    llm_timeout_seconds: float = 30.0
 
     # Embedding
     embedding_model: str = "BAAI/bge-m3"
