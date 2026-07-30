@@ -79,7 +79,7 @@ $env:LLM_BASE_URL = "https://api.deepseek.com"
 $env:LLM_MODEL = "deepseek-v4-flash"
 ```
 
-也可以将相同配置写入项目根目录的 `.env`。请勿将真实密钥提交到 Git。
+也可以将相同配置写入项目根目录的 `.env`。请勿将真实密钥提交到 Git；Streamlit 只请求本地 FastAPI，浏览器不会接触 DeepSeek API Key。
 
 首次启动或重新写入演示知识库时，在项目目录依次运行：
 
