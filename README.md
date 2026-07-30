@@ -2,6 +2,63 @@
 
 面向中文互联网科技公司的内部支持演示系统。系统使用 BGE-M3 与 PostgreSQL pgvector 检索差旅、办公 IT 和账号权限知识；普通问题返回带来源的答案，敏感操作自动创建工单，不执行密码重置或权限变更。
 
+## 项目定位
+
+这是一个可落地的中文企业知识库 Agent：员工提问后，系统先进行敏感操作识别、权限与来源校验，再通过三层混合检索定位企业知识；对于敏感请求或证据不足的请求，系统自动创建可追踪的支持工单。
+
+```mermaid
+flowchart LR
+    UI["Streamlit 前端"] --> API["FastAPI /chat"]
+    API --> Agent["SupportAgent"]
+    Agent --> Safety["路由、权限与 Grounding"]
+    Agent --> Vector["pgvector 向量检索"]
+    Agent --> BM25["中文 BM25 检索"]
+    Vector --> RRF["RRF 融合"]
+    BM25 --> RRF
+    RRF --> Rerank["BGE 重排序"]
+    Rerank --> DB[("PostgreSQL + pgvector")]
+    Safety -->|敏感或证据不足| Ticket["工单管理"]
+```
+
+## 项目结构
+
+```text
+app/
+├─ api/          # FastAPI 接口、限流、请求与响应模型
+├─ core/         # 环境变量与实验 YAML 配置
+├─ db/           # SQLAlchemy 模型与数据库会话
+├─ ingestion/    # Markdown 切块、Embedding 与知识库入库
+├─ retrieval/    # 向量、BM25、RRF 与重排序三层检索
+├─ support/      # Agent 编排、安全路由、Grounding 与工单服务
+├─ evaluation/   # 黄金数据集、指标与实验运行器
+└─ ui/           # Streamlit 员工问答页、工单管理页与主题
+
+data/            # 演示文档与评测黄金集
+configs/         # V1~V4 实验配置（含 RRF、三层重排序）
+tests/           # api、检索、业务、安全、评估与 UI 自动化测试
+alembic/         # PostgreSQL / pgvector 数据库迁移与索引
+scripts/         # 演示数据初始化、评估与 Docker 启动脚本
+```
+
+### 核心模块
+
+- `app/api/main.py`：应用入口，提供 `/health`、`/chat`、Trace 与工单接口；应用启动时完成配置校验与模型预热。
+- `app/support/agent.py`：全链路编排器，负责调用检索、执行安全决策、生成引用、创建工单及写入查询 Trace。
+- `app/retrieval/service.py`：三层检索主流程，记录 embedding、向量、BM25、融合、重排等分段耗时。
+- `app/retrieval/bm25.py`：面向中文文本的 BM25 词法检索。
+- `app/retrieval/reranker.py`：使用 `BAAI/bge-reranker-v2-m3` 对融合候选进行交叉编码器重排序；模型不可用时安全降级到 RRF。
+- `app/ingestion/service.py`：将 Markdown 文档切块、生成 BGE-M3 向量并写入 pgvector。
+- `app/support/routing.py`、`grounding.py`：拦截密码、权限、数据等敏感请求，完成访问级别过滤与回答来源验证。
+- `app/ui/streamlit_app.py`：员工问答工作台；`app/ui/ticket_management.py`：管理员工单工作台。
+
+### 请求链路
+
+`Streamlit 页面 → FastAPI /chat → SupportAgent → 安全路由 → 三层检索 → 带引用回答 / 创建工单 → 写入 QueryTrace`
+
+### 面试表达
+
+> 我实现了一个中文企业内部支持 Agent，包含 pgvector 密集向量检索、中文 BM25 词法检索、RRF 融合和 BGE 重排序；同时加入权限过滤、敏感操作工单兜底、查询 Trace、评测配置和 Docker 化部署，使其具备企业落地所需的安全性、可观测性与可迭代性。
+
 ## 启动顺序
 
 ### 检索模型下载与降级
