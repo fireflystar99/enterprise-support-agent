@@ -4,6 +4,16 @@
 
 ## 启动顺序
 
+### 检索模型下载与降级
+
+首次启动 API 时会下载 BGE-M3 向量模型和 BGE Cross-Encoder 重排序模型。请在启动前设置 Hugging Face 端点（PowerShell）：
+
+```powershell
+$env:HF_ENDPOINT = "https://huggingface.co"
+```
+
+模型下载完成后，服务会复用本地缓存。若重排序模型不可用（例如网络不可达或模型文件缺失），检索不会阻止服务启动，而会安全降级为仅使用 RRF 融合排序的结果。
+
 首次启动或重新写入演示知识库时，在项目目录依次运行：
 
 ```powershell
