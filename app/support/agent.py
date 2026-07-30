@@ -53,12 +53,14 @@ class SupportAgent:
             session.close()
 
     def handle(self, question: str, department: str | None = None, config: "ExperimentConfig | None" = None) -> ChatResponse:
+        # 每次请求都生成可追踪 ID，并从入口开始统计端到端延迟。
         trace_id = str(uuid.uuid4())
         start = time.monotonic_ns()
 
         top_k = config.retrieval.top_k if config else 3
         retrieval_mode = config.retrieval.mode if config else "vector"
 
+        # 检索模式由 YAML 实验配置控制，便于比较向量、RRF 和三层精排的效果。
         if retrieval_mode in {"hybrid", "three_stage"}:
             chunks = self._retrieval.hybrid_search(
                 question,
@@ -79,11 +81,13 @@ class SupportAgent:
             user_access = resolve_access_level(department)
             chunks = filter_by_access_level(chunks, user_access)
 
+        # 路由同时考虑“是否有证据”和“是否是敏感操作”：任一不满足都不直接回答。
         evidence_count = len(chunks)
         route = decide_route(question, evidence_count)
         chunk_ids = ",".join(c.id for c in chunks)
 
         if route is Route.TICKET:
+            # 工单是安全兜底，不执行密码重置、权限提升等真实系统操作。
             reason = "证据不足，或请求涉及敏感操作"
             risk_level = "high" if calculate_risk_score(question) > 0 else "low"
             ticket = ticket_service.create(question, reason=reason, risk_level=risk_level)
@@ -100,6 +104,7 @@ class SupportAgent:
             self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
             return response
 
+        # 回答与引用从同一批检索证据构造，保证页面展示的来源可追溯。
         citations = [
             Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200])
             for c in chunks
@@ -112,6 +117,7 @@ class SupportAgent:
             from app.support.grounding import validate_grounding
             citation_ids = [c.chunk_id for c in citations]
             if not validate_grounding(answer, citation_ids):
+                # 即使检索到了内容，只要回答无法被来源验证，仍降级到人工工单。
                 ticket = ticket_service.create(question, reason="回答未通过来源验证", risk_level="high")
                 latency_ms = int((time.monotonic_ns() - start) / 1_000_000)
                 response = ChatResponse(
@@ -135,6 +141,7 @@ class SupportAgent:
             trace_id=trace_id,
             latency_ms=latency_ms,
         )
+        # 成功回答也写入 Trace，便于审计、问题复盘和后续离线评估。
         self._persist_trace(trace_id, question, chunk_ids, response.answer, response.route, response.confidence, response.ticket_id, latency_ms)
         return response
 

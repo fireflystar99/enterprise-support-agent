@@ -49,7 +49,9 @@ def calculate_risk_score(question: str) -> int:
 def decide_route(question: str, evidence_count: int) -> Route:
     """证据不足或问题敏感时路由到工单。"""
     if evidence_count == 0:
+        # 无知识库证据时不允许猜测答案，统一交由人工支持处理。
         return Route.TICKET
     if calculate_risk_score(question) > 0:
+        # 命中敏感动作时只创建工单；Agent 不具备直接执行高风险操作的权限。
         return Route.TICKET
     return Route.ANSWER

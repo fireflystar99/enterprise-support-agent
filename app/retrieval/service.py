@@ -39,6 +39,7 @@ def _demo_search(question: str) -> list[RetrievedChunk]:
 def _get_embedding_model():
     global _embedding_model
     if _embedding_model is None:
+        # 进程内单例缓存：模型只加载一次，后续请求直接复用。
         from sentence_transformers import SentenceTransformer
         _embedding_model = SentenceTransformer(settings.embedding_model, trust_remote_code=True)
     return _embedding_model
@@ -156,6 +157,7 @@ class RetrievalService:
             if department:
                 base = base.filter(Chunk.department == department)
 
+            # 先多召回，再融合/精排；向量 4 倍、文本 2 倍是质量与延迟的平衡。
             vector_candidate_limit = limit * 4
             text_candidate_limit = limit * 2
             started = time.perf_counter()
@@ -167,6 +169,7 @@ class RetrievalService:
             started = time.perf_counter()
             from sqlalchemy.orm import load_only
 
+            # BM25 只需要文本与元数据，显式排除 embedding 大字段，避免无谓传输。
             rows = base.options(
                 load_only(
                     Chunk.id,
@@ -188,6 +191,7 @@ class RetrievalService:
                 return str(row.id)
 
             started = time.perf_counter()
+            # Reciprocal Rank Fusion：同一文档在两个召回列表中排名靠前时得分更高。
             all_ids: dict[str, float] = {}
             for rank, row in enumerate(vector_rows, 1):
                 all_ids[row_key(row)] = all_ids.get(row_key(row), 0.0) + 1.0 / (60 + rank)
@@ -214,10 +218,12 @@ class RetrievalService:
             started = time.perf_counter()
             if rerank:
                 try:
+                    # 只对融合后的前 N 个候选进行 Cross-Encoder 精排，控制模型推理开销。
                     rerank_limit = rerank_top_n or len(candidates)
                     reranked = rerank_candidates(question, candidates[:rerank_limit])
                     candidates = reranked + candidates[rerank_limit:]
                 except OSError:
+                    # 重排序模型不可用时保留 RRF 结果，检索服务仍可正常对外提供答案。
                     logger.warning("Reranker unavailable; using RRF ordering")
             self.last_timings["rerank_ms"] = int((time.perf_counter() - started) * 1000)
 
@@ -226,6 +232,7 @@ class RetrievalService:
                 (time.perf_counter() - total_started) * 1000
             )
             if self.last_timings["total_ms"] > 1000:
+                # 分段耗时写日志，方便定位模型、数据库或重排阶段的性能瓶颈。
                 logger.warning("Slow retrieval: %s", self.last_timings)
             return result
         finally:

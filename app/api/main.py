@@ -22,6 +22,7 @@ from app.support.tickets import TicketDatabaseError, ticket_service
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # 在开始监听请求前完成生产配置校验和模型预热，避免首个用户请求承担加载成本。
     validate_production_config()
     warm_embedding_model()
     if settings.app_env != "demo":
@@ -29,13 +30,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+# 限流放在 API 边界，避免异常流量进入检索模型和数据库。
 app = FastAPI(title="Enterprise Support Agent", lifespan=lifespan)
+# 表示每个窗口最多 60 次请求，避免接口被短时间滥用。
 app.add_middleware(RateLimitMiddleware, max_requests=60, window_seconds=60)
 
+# 配置在进程启动时加载；每次聊天请求复用同一份经过校验的实验配置。
 _production_config = load_config("production")
 
 
 def _verify_admin(x_admin_token: str | None = Header(None)) -> None:
+    # Trace 与工单包含内部信息，因此所有管理接口都必须显式携带管理员令牌。
     expected = settings.admin_token
     if not expected:
         raise HTTPException(status_code=500, detail="ADMIN_TOKEN not configured")
@@ -50,6 +55,7 @@ def health() -> dict[str, str]:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
+    # API 层只负责协议转换；检索、安全路由和持久化都由 SupportAgent 编排。
     return support_agent.handle(request.question, request.department, config=_production_config)
 
 
