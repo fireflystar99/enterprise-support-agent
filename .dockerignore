@@ -3,6 +3,9 @@ __pycache__/
 .env
 .venv/
 venv/
+.cache/
+.worktrees/
+.idea/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
