@@ -60,6 +60,8 @@ if st.button("开始咨询", type="primary") and question.strip():
         data = metadata
         if data["route"] == "ticket":
             st.warning(f"已转交支持工单\n\n工单编号：`{data['ticket_id']}`")
+            answer = ""
+            answer_placeholder.empty()
             answer_placeholder.write(data["answer"])
         if data["citations"]:
             st.markdown("<div class='saas-card'><h3>知识来源</h3></div>", unsafe_allow_html=True)

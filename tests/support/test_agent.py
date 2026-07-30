@@ -154,6 +154,61 @@ def test_uncited_deepseek_answer_routes_to_ticket(monkeypatch) -> None:
     assert response.route == "ticket"
 
 
+def test_stream_with_out_of_range_citation_routes_to_ticket(monkeypatch) -> None:
+    service = MagicMock(spec=RetrievalService)
+    service.search.return_value = [
+        RetrievedChunk(
+            id="chunk-1",
+            content="报销须在 30 天内提交。",
+            title="差旅政策",
+            section="提交时限",
+            score=0.95,
+        ),
+    ]
+    config = ExperimentConfig(
+        version="test",
+        grounding=GroundingConfig(enabled=True, mandatory_citations=True),
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "stream_answer",
+        lambda *_args: iter(["请在 30 天内提交。 [999]"]),
+    )
+
+    events = list(SupportAgent(retrieval_service=service).stream("如何报销？", config=config))
+
+    assert [event for event, _ in events] == ["metadata"]
+    assert events[0][1]["route"] == "ticket"
+
+
+def test_stream_interruption_creates_ticket_and_final_metadata(monkeypatch) -> None:
+    service = MagicMock(spec=RetrievalService)
+    service.search.return_value = [
+        RetrievedChunk(
+            id="chunk-1",
+            content="报销须在 30 天内提交。",
+            title="差旅政策",
+            section="提交时限",
+            score=0.95,
+        ),
+    ]
+    config = ExperimentConfig(
+        version="test",
+        grounding=GroundingConfig(enabled=True, mandatory_citations=True),
+    )
+
+    def interrupted_stream(*_args):
+        yield "请在 30 天内提交。 [1]"
+        raise DeepSeekError("offline")
+
+    monkeypatch.setattr(agent_module, "stream_answer", interrupted_stream)
+
+    events = list(SupportAgent(retrieval_service=service).stream("如何报销？", config=config))
+
+    assert events[-1][0] == "metadata"
+    assert events[-1][1]["route"] == "ticket"
+
+
 def test_agent_uses_rerank_settings_from_experiment_config() -> None:
     mock_svc = MagicMock(spec=RetrievalService)
     mock_svc.hybrid_search.return_value = [

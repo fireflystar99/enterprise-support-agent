@@ -27,3 +27,10 @@ def test_answer_with_citations_but_no_marker_fails() -> None:
         answer="Submit receipts within 30 days.",
         citations=["1"],
     ) is False
+
+
+def test_answer_with_out_of_range_citation_fails() -> None:
+    assert validate_grounding(
+        answer="Submit receipts within 30 days [999].",
+        citations=["chunk-1"],
+    ) is False

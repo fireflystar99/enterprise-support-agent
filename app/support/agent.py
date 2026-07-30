@@ -141,7 +141,7 @@ class SupportAgent:
         answer = self._build_answer(chunks)
 
         # grounding check (V3)
-        mandatory = config is not None and config.grounding.enabled and config.grounding.mandatory_citations
+        mandatory = True
         if mandatory:
             from app.support.grounding import validate_grounding
             citation_ids = [c.chunk_id for c in citations]
@@ -228,24 +228,55 @@ class SupportAgent:
             return
 
         citations = [Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200]) for c in chunks]
-        mandatory = config is not None and config.grounding.enabled and config.grounding.mandatory_citations
+        from app.support.grounding import validate_grounding
+
+        # 流式数据先缓冲到一个完整的引用标记，再向客户端发送。
+        # 这样无效来源编号不会在页面上提前出现。
         tokens: list[str] = []
+        pending_segment = ""
+        citation_ids = [c.chunk_id for c in citations]
         try:
             for token in stream_answer(question, [chunk.content for chunk in chunks]):
                 tokens.append(token)
-                yield "token", {"text": token}
+                pending_segment += token
+                while "]" in pending_segment:
+                    segment, pending_segment = pending_segment.split("]", maxsplit=1)
+                    segment = f"{segment}]"
+                    if not validate_grounding(segment, citation_ids):
+                        response = self._ticket_response(
+                            question,
+                            trace_id,
+                            chunk_ids,
+                            start,
+                            "回答未通过来源验证",
+                            "high",
+                        )
+                        yield "metadata", response.model_dump(mode="json")
+                        return
+                    yield "token", {"text": segment}
         except DeepSeekError:
-            if tokens:
-                yield "error", {"message": "回答生成中断，请稍后重试。"}
-                return
-            response = self._ticket_response(question, trace_id, chunk_ids, start, "语言模型暂时不可用", "low")
+            # 即使已经收到部分 token，也必须创建工单并持久化 Trace。
+            response = self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "语言模型暂时不可用",
+                "low",
+            )
             yield "metadata", response.model_dump(mode="json")
             return
 
         answer = "".join(tokens).strip()
-        from app.support.grounding import validate_grounding
-        if mandatory and not validate_grounding(answer, [c.chunk_id for c in citations]):
-            response = self._ticket_response(question, trace_id, chunk_ids, start, "回答未通过来源验证", "high")
+        if pending_segment.strip() or not validate_grounding(answer, citation_ids):
+            response = self._ticket_response(
+                question,
+                trace_id,
+                chunk_ids,
+                start,
+                "回答未通过来源验证",
+                "high",
+            )
             yield "metadata", response.model_dump(mode="json")
             return
 

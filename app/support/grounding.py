@@ -9,8 +9,10 @@ def validate_grounding(answer: str, citations: list[str]) -> bool:
         return False
     if not citations:
         return False
-    has_citation_marker = bool(re.search(r'\[\d+\]|\[source-\d+\]', answer))
-    return has_citation_marker
+    markers = re.findall(r'\[(?:source-)?(\d+)\]', answer)
+    if not markers:
+        return False
+    return all(1 <= int(marker) <= len(citations) for marker in markers)
 
 
 def filter_by_access_level(chunks: list[RetrievedChunk], user_access: str) -> list[RetrievedChunk]:
