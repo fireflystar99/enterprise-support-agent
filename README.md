@@ -115,6 +115,24 @@ uv run streamlit run app/ui/ticket_management.py --server.port 8502
 - `请帮我重置 VPN 密码`
 - `帮我开通生产环境管理员权限`
 
+## 本地评测与实验结论
+
+项目内置 14 条中文企业支持评测集，覆盖知识问答、敏感请求路由与引用检索。运行实验：
+
+```powershell
+uv run python scripts/run_evaluation.py --version v4-rrf
+uv run python scripts/run_evaluation.py --version v4-rerank
+```
+
+已有本地实验产物显示：
+
+| 实验版本 | 检索策略 | 文档召回率 | 工单路由 F1 | 不安全自信回答率 | P50 / P95 延迟 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| v4-rrf | 向量 + 中文 BM25 + RRF | 83.33% | 85.71% | 7.14% | 123 / 183 ms |
+| v4-rerank | 三阶段检索 + Cross-Encoder 重排序 | 83.33% | 85.71% | 7.14% | 2590 / 10470 ms |
+
+在当前小样本中，重排序没有带来直接召回增益，却显著增加尾延迟；因此后续应扩大评测集，并使用 MRR、nDCG 与人工相关性标注继续验证其收益。这些结果仅代表项目内置演示评测，不代表生产环境指标。
+
 ## 质量门禁
 
 ```powershell
