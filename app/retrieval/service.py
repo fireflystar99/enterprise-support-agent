@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 from app.core.config import settings
@@ -7,6 +8,7 @@ from app.retrieval.reranker import rerank_candidates
 from app.retrieval.types import RetrievedChunk
 
 _embedding_model = None
+_embedding_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 _DEMO_CHUNKS: dict[str, RetrievedChunk] = {
@@ -96,7 +98,8 @@ class RetrievalService:
         self.last_timings = self._empty_timings()
         started = time.perf_counter()
         model = _get_embedding_model()
-        query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
+        with _embedding_lock:
+            query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
         self.last_timings["embedding_ms"] = int((time.perf_counter() - started) * 1000)
 
         session = SessionLocal()
@@ -148,7 +151,8 @@ class RetrievalService:
         self.last_timings = self._empty_timings()
         started = time.perf_counter()
         model = _get_embedding_model()
-        query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
+        with _embedding_lock:
+            query_embedding = model.encode([question], normalize_embeddings=True).tolist()[0]
         self.last_timings["embedding_ms"] = int((time.perf_counter() - started) * 1000)
 
         session = SessionLocal()

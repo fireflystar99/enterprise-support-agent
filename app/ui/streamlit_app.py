@@ -1,7 +1,6 @@
 """智行科技内部员工助手的现代 SaaS 工作台。"""
 import httpx
 import streamlit as st
-from streaming import parse_sse_lines
 from theme import theme_css
 
 st.set_page_config(page_title="智行科技内部员工助手", page_icon="💬", layout="wide")
@@ -26,38 +25,30 @@ question = st.text_area("问题", key="question", placeholder="例如：差旅�
 if st.button("开始咨询", type="primary") and question.strip():
     st.markdown("<div class='saas-card'><h3>回答</h3></div>", unsafe_allow_html=True)
     answer_placeholder = st.empty()
-    answer = ""
     metadata: dict[str, object] | None = None
     error_message: str | None = None
 
     with st.spinner("正在检索知识库并生成回答…"):
         try:
-            with httpx.stream(
-                "POST",
-                f"{api_url}/chat/stream",
+            resp = httpx.post(
+                f"{api_url}/chat",
                 json={"question": question},
-                timeout=30,
-            ) as response:
-                response.raise_for_status()
-                for event, payload in parse_sse_lines(response.iter_lines()):
-                    if event == "token":
-                        answer += str(payload.get("text", ""))
-                        answer_placeholder.markdown(f"{answer}▌")
-                    elif event == "metadata":
-                        metadata = payload
-                    elif event == "error":
-                        error_message = str(payload.get("message", "回答生成失败，请稍后重试。"))
+                timeout=60,
+            )
+            resp.raise_for_status()
+            metadata = resp.json()
         except (httpx.RequestError, ValueError) as exc:
             error_message = f"API 请求失败：{exc}"
 
-    if answer:
-        answer_placeholder.markdown(answer)
     if error_message:
         st.error(error_message)
     elif metadata is None:
         st.error("未收到服务端最终结果，请稍后重试。")
     else:
         data = metadata
+        answer = str(data.get("answer", ""))
+        if answer:
+            answer_placeholder.markdown(answer)
         if data["route"] == "ticket":
             st.warning(f"已转交支持工单\n\n工单编号：`{data['ticket_id']}`")
             answer = ""

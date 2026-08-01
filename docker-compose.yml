@@ -1,22 +1,26 @@
 services:
   db:
     image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: support_agent
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-support_agent}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d support_agent"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-support_agent}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    volumes:
+      - support_agent_data:/var/lib/postgresql/data
 
   api:
     build: .
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+psycopg://app:app@db:5432/support_agent
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-support_agent}
       LLM_API_KEY: ${LLM_API_KEY:-}
       SEED_DEMO_DATA: "true"
     depends_on:
@@ -33,3 +37,6 @@ services:
     depends_on:
       - api
     command: streamlit run app/ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+
+volumes:
+  support_agent_data:
