@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Self
 
@@ -39,6 +40,36 @@ class _FakePdf:
 
     def __exit__(self, *exc: object) -> None:
         return None
+
+
+class _ExplodingPage:
+    def get_text(self, kind: str) -> str:
+        raise RuntimeError("degenerate page")
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+class _ExplodingDocument:
+    """get_text 抛异常的假 fitz 文档，模拟退化的 PDF 页面。"""
+
+    needs_pass = False
+    is_closed = False
+
+    def __init__(self) -> None:
+        self._pages = [_ExplodingPage()]
+
+    def __iter__(self) -> Iterator[object]:
+        return iter(self._pages)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.is_closed = True
 
 
 def test_load_pdf_creates_page_bounded_text_drafts(sample_pdf: Path) -> None:
@@ -96,3 +127,12 @@ def test_load_pdf_corrupted_returns_status(tmp_path: Path) -> None:
     drafts, report = load_pdf(corrupted, relative_path="data/documents/corrupted.pdf")
     assert report.status == "pdf_parse_error"
     assert drafts == []
+
+
+def test_load_pdf_get_text_error_returns_status(monkeypatch, sample_pdf: Path) -> None:
+    exploding = _ExplodingDocument()
+    monkeypatch.setattr(pdf_module.fitz, "open", lambda _: exploding)
+    drafts, report = load_pdf(sample_pdf, relative_path="data/documents/sample.pdf")
+    assert report.status == "pdf_parse_error"
+    assert drafts == []
+    assert exploding.is_closed is True

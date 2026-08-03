@@ -58,7 +58,10 @@ def load_pdf(path: Path, *, relative_path: str) -> tuple[list[ChunkDraft], PdfIn
 
         drafts: list[ChunkDraft] = []
         for page_number, page in enumerate(document, start=1):
-            content = page.get_text("text").strip()
+            try:
+                content = page.get_text("text").strip()
+            except Exception as exc:  # noqa: BLE001 退化页面文本提取失败不向外抛
+                return _report(drafts, path_str, "pdf_parse_error", 0, str(exc))
             if content:
                 drafts.extend(chunk_text(
                     content,
