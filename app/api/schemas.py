@@ -12,6 +12,7 @@ class Citation(BaseModel):
     chunk_id: str
     title: str
     excerpt: str
+    location: str | None = None
 
 
 class ChatResponse(BaseModel):

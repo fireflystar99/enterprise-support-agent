@@ -32,6 +32,15 @@ class SupportAgent:
             lines.append(f"[{i}] {c.content}")
         return "\n\n".join(lines)
 
+    @staticmethod
+    def _citation_location(chunk: RetrievedChunk) -> str | None:
+        if chunk.page_number is None:
+            return None
+        location = f"第 {chunk.page_number} 页"
+        if chunk.table_name:
+            location = f"{location}，{chunk.table_name}"
+        return location
+
     def _persist_trace(self, trace_id: str, question: str, chunk_ids: str, answer: str, route: str, confidence: str, ticket_id: str | None, latency_ms: int) -> None:
         try:
             session = SessionLocal()
@@ -135,7 +144,12 @@ class SupportAgent:
 
         # 回答与引用从同一批检索证据构造，保证页面展示的来源可追溯。
         citations = [
-            Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200])
+            Citation(
+                chunk_id=c.id,
+                title=c.title,
+                excerpt=c.content[:200],
+                location=self._citation_location(c),
+            )
             for c in chunks
         ]
         answer = self._build_answer(chunks)
@@ -227,7 +241,15 @@ class SupportAgent:
             yield "metadata", response.model_dump(mode="json")
             return
 
-        citations = [Citation(chunk_id=c.id, title=c.title, excerpt=c.content[:200]) for c in chunks]
+        citations = [
+            Citation(
+                chunk_id=c.id,
+                title=c.title,
+                excerpt=c.content[:200],
+                location=self._citation_location(c),
+            )
+            for c in chunks
+        ]
         from app.support.grounding import validate_grounding
 
         # 流式数据先缓冲到一个完整的引用标记，再向客户端发送。
