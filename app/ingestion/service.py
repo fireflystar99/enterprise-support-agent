@@ -1,10 +1,18 @@
 """文档摄入服务——加载、分块、编码 embedding、写入 pgvector，并按格式分发 Markdown / PDF。"""
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.ingestion.chunking import ChunkDraft, chunk_markdown
 from app.ingestion.pdf import PdfIngestionReport, load_pdf
 
 _embedding_model = None
+
+
+@dataclass(frozen=True)
+class IngestionSummary:
+    chunk_count: int
+    markdown_documents: int
+    pdf_reports: tuple[PdfIngestionReport, ...]
 
 
 def _get_embedding_model():
@@ -40,14 +48,14 @@ def ingest_documents(docs_dir: Path) -> tuple[list[ChunkDraft], list[PdfIngestio
     return all_chunks, pdf_reports
 
 
-def ingest_to_db(docs_dir: Path, clear: bool = False) -> int:
-    """加载、分块、编码 embedding 并写入 pgvector。返回 Chunk 数量。"""
+def ingest_to_db(docs_dir: Path, clear: bool = False) -> IngestionSummary:
+    """加载、分块、编码 embedding 并写入 pgvector。返回汇总统计。"""
     from app.db.models import Chunk, Document
     from app.db.session import SessionLocal
 
-    draft_chunks, _pdf_reports = ingest_documents(docs_dir)
+    draft_chunks, pdf_reports = ingest_documents(docs_dir)
     if not draft_chunks:
-        return 0
+        return _summary(draft_chunks, pdf_reports)
 
     model = _get_embedding_model()
     session = SessionLocal()
@@ -102,6 +110,19 @@ def ingest_to_db(docs_dir: Path, clear: bool = False) -> int:
             seen_titles.add(title)
 
         session.commit()
-        return chunk_count
+        return _summary(draft_chunks, pdf_reports)
     finally:
         session.close()
+
+
+def _summary(
+    drafts: list[ChunkDraft],
+    pdf_reports: list[PdfIngestionReport],
+) -> IngestionSummary:
+    """从已分块的 drafts 与 PDF 报告聚合一次性汇总，不重复解析文件。"""
+    markdown_documents = {d.title for d in drafts if d.source_type == "markdown"}
+    return IngestionSummary(
+        chunk_count=len(drafts),
+        markdown_documents=len(markdown_documents),
+        pdf_reports=tuple(pdf_reports),
+    )

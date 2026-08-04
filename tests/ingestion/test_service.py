@@ -17,8 +17,8 @@ def test_ingest_documents_loads_and_chunks_markdown(tmp_path: Path) -> None:
 def test_ingest_to_db_returns_zero_for_empty_dir() -> None:
     from app.ingestion.service import ingest_to_db
 
-    result = ingest_to_db(Path("/nonexistent_dir_xyz"), clear=False)
-    assert result == 0
+    summary = ingest_to_db(Path("/nonexistent_dir_xyz"), clear=False)
+    assert summary.chunk_count == 0
 
 
 def test_ingest_to_db_inserts_all_chunks_per_document(tmp_path: Path) -> None:
@@ -35,13 +35,13 @@ def test_ingest_to_db_inserts_all_chunks_per_document(tmp_path: Path) -> None:
         fake_model = mock_model.return_value
         fake_model.encode.return_value.tolist.return_value = [[0.0] * 1024] * 3
 
-        mock_session = mock_cls.return_value.__enter__.return_value
+        mock_session = mock_cls.return_value
         mock_session.query.return_value.all.return_value = []
 
-        result_count = ingest_to_db(tmp_path, clear=False)
+        result = ingest_to_db(tmp_path, clear=False)
 
         # 3 sections → 3 chunks
-        assert result_count == 3
+        assert result.chunk_count == 3
 
 
 def test_ingest_documents_loads_markdown_and_pdf(monkeypatch, tmp_path: Path) -> None:
