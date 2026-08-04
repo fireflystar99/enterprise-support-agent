@@ -45,6 +45,12 @@ class Chunk(Base):
     department: Mapped[str] = mapped_column(String(100), default="General")
     access_level: Mapped[str] = mapped_column(String(20), default="public")
     version: Mapped[str] = mapped_column(String(20), default="1.0")
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False, default="markdown")
+    source_path: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    content_type: Mapped[str] = mapped_column(String(20), nullable=False, default="text")
+    table_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    table_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
