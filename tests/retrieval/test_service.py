@@ -67,6 +67,29 @@ def _row(identifier: str, content: str):
         section="",
         access_level="public",
         department="General",
+        source_type="markdown",
+        source_path="",
+        page_number=None,
+        content_type="text",
+        table_name=None,
+        table_json=None,
+    )
+
+
+def _pdf_row(identifier: str, content: str):
+    return SimpleNamespace(
+        id=identifier,
+        content=content,
+        title=identifier,
+        section="第 3 页",
+        access_level="public",
+        department="General",
+        source_type="pdf",
+        source_path="data/documents/travel-policy.pdf",
+        page_number=3,
+        content_type="table",
+        table_name="表格 1",
+        table_json='[["职级", "上限"], ["P4", "800 元"]]',
     )
 
 
@@ -189,3 +212,31 @@ def test_lifespan_skips_reranker_warmup_in_demo(monkeypatch) -> None:
     asyncio.run(run_lifespan())
 
     assert calls == ["validate", "embedding"]
+
+
+def test_hybrid_search_preserves_pdf_source_metadata(monkeypatch) -> None:
+    session = _install_hybrid_dependencies(monkeypatch)
+    pdf_row = _pdf_row("pdf-1", "| 职级 | 上限 |\n| --- | --- |\n| P4 | 800 元 |")
+    session.query_object.rows = [_row("md-1", "markdown content"), pdf_row]
+    session.query_object.vector_rows = [pdf_row]
+
+    results = RetrievalService().hybrid_search("住宿上限", limit=3)
+
+    pdf_result = next(c for c in results if c.id == "pdf-1")
+    assert pdf_result.source_type == "pdf"
+    assert pdf_result.source_path == "data/documents/travel-policy.pdf"
+    assert pdf_result.page_number == 3
+    assert pdf_result.content_type == "table"
+    assert pdf_result.table_name == "表格 1"
+
+
+def test_search_preserves_pdf_source_metadata(monkeypatch) -> None:
+    session = _install_hybrid_dependencies(monkeypatch)
+    pdf_row = _pdf_row("pdf-1", "P4 住宿上限为 800 元。")
+    session.query_object.rows = [pdf_row]
+    session.query_object.vector_rows = [pdf_row]
+
+    results = RetrievalService().search("住宿上限", limit=3)
+
+    assert results[0].page_number == 3
+    assert results[0].table_name == "表格 1"

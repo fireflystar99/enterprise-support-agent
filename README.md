@@ -47,7 +47,8 @@ scripts/         # 演示数据初始化、评估与 Docker 启动脚本
 - `app/retrieval/service.py`：三层检索主流程，记录 embedding、向量、BM25、融合、重排等分段耗时。
 - `app/retrieval/bm25.py`：面向中文文本的 BM25 词法检索。
 - `app/retrieval/reranker.py`：使用 `BAAI/bge-reranker-v2-m3` 对融合候选进行交叉编码器重排序；模型不可用时安全降级到 RRF。
-- `app/ingestion/service.py`：将 Markdown 文档切块、生成 BGE-M3 向量并写入 pgvector。
+- `app/ingestion/service.py`：格式分发 Markdown 与 PDF，将文档切块、生成 BGE-M3 向量并写入 pgvector，返回入库汇总。
+- `app/ingestion/pdf.py`：PyMuPDF 逐页提取可选文本、pdfplumber 提取简单原生表格；加密、损坏或不可提取的文件只返回报告，不阻断其余文档。
 - `app/support/routing.py`、`grounding.py`：拦截密码、权限、数据等敏感请求，完成访问级别过滤与回答来源验证。
 - `app/ui/streamlit_app.py`：员工问答工作台；`app/ui/ticket_management.py`：管理员工单工作台。
 
@@ -132,6 +133,19 @@ uv run python scripts/run_evaluation.py --version v4-rerank
 | v4-rerank | 三阶段检索 + Cross-Encoder 重排序 | 83.33% | 85.71% | 7.14% | 2590 / 10470 ms |
 
 在当前小样本中，重排序没有带来直接召回增益，却显著增加尾延迟；因此后续应扩大评测集，并使用 MRR、nDCG 与人工相关性标注继续验证其收益。这些结果仅代表项目内置演示评测，不代表生产环境指标。
+
+## PDF 与表格知识入库
+
+`ingest_documents` 按名称顺序分发 `data/documents` 下的 Markdown 与 PDF：Markdown 走标题切块，PDF 严格以页为边界——PyMuPDF 提取正文文本，pdfplumber 提取行/列规整、总单元格不超过 500 的简单原生表格，并序列化为可检索的 Markdown 表格与原始 JSON。来源类型、文件路径、页码、表格名与表格 JSON 贯穿分块、持久化、检索结果与 API 引用，回答引用会标注 `第 N 页` 或 `第 N 页，表格 M`。
+
+扫描件、截图、图表以及复杂/合并单元格表格无法被文本提取，会被报告为跳过（SKIPPED），需要后续 OCR / 视觉版本处理。
+
+```powershell
+uv run alembic upgrade head
+uv run python scripts/seed_demo.py --clear
+```
+
+入库输出包含确定性的统计：总 chunks、Markdown 文档数、PDF 文档数、PDF 正文 chunk 总数、表格 chunk 总数，以及对每个非成功 PDF 的 `SKIPPED: <path> (<status>)` 提示。
 
 ## 质量门禁
 

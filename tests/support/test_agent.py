@@ -236,3 +236,19 @@ def test_agent_uses_rerank_settings_from_experiment_config() -> None:
         rerank=True,
         rerank_top_n=6,
     )
+
+
+def test_agent_citation_includes_pdf_page_and_table(monkeypatch) -> None:
+    service = MagicMock(spec=RetrievalService)
+    service.search.return_value = [RetrievedChunk(
+        id="chunk-1", content="| 职级 | 上限 |\n| --- | --- |\n| P4 | 800 元 |",
+        title="travel-policy", section="第 3 页", score=0.95,
+        source_type="pdf", source_path="data/documents/travel-policy.pdf",
+        page_number=3, content_type="table", table_name="表格 1",
+    )]
+    monkeypatch.setattr(agent_module, "generate_answer", lambda *_: "P4 的上限为 800 元。[1]", raising=False)
+
+    response = SupportAgent(retrieval_service=service).handle("P4 住宿上限是多少？")
+
+    assert response.route == "answer"
+    assert response.citations[0].location == "第 3 页，表格 1"

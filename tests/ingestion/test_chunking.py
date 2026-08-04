@@ -1,4 +1,4 @@
-from app.ingestion.chunking import chunk_markdown
+from app.ingestion.chunking import chunk_markdown, chunk_text
 
 
 def test_chunking_preserves_document_metadata() -> None:
@@ -44,4 +44,38 @@ def test_overlap_preserves_context() -> None:
         overlap=50,
     )
     assert len(chunks) >= 2
+
+
+def test_chunk_text_preserves_pdf_page_metadata() -> None:
+    chunks = chunk_text(
+        "住宿报销上限为每晚 800 元。",
+        title="travel-policy",
+        section="第 3 页",
+        source_type="pdf",
+        source_path="data/documents/travel-policy.pdf",
+        page_number=3,
+    )
+    assert len(chunks) == 1
+    assert chunks[0].source_type == "pdf"
+    assert chunks[0].source_path == "data/documents/travel-policy.pdf"
+    assert chunks[0].page_number == 3
+    assert chunks[0].content_type == "text"
+
+
+def test_chunk_text_preserves_source_metadata_across_all_segments() -> None:
+    long_text = "住宿报销规则。" * 300  # ~2,100 chars, forces multiple segments
+    chunks = chunk_text(
+        long_text,
+        title="travel-policy",
+        section="第 3 页",
+        source_type="pdf",
+        source_path="data/documents/travel-policy.pdf",
+        page_number=3,
+    )
+    assert len(chunks) >= 2  # >800 chars must split
+    for c in chunks:
+        assert c.source_type == "pdf"
+        assert c.source_path == "data/documents/travel-policy.pdf"
+        assert c.page_number == 3
+        assert c.content_type == "text"
 

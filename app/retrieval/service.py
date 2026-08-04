@@ -122,6 +122,11 @@ class RetrievalService:
                     score=1.0,
                     access_level=row.access_level,
                     department=row.department,
+                    source_type=getattr(row, "source_type", "markdown"),
+                    source_path=getattr(row, "source_path", ""),
+                    page_number=getattr(row, "page_number", None),
+                    content_type=getattr(row, "content_type", "text"),
+                    table_name=getattr(row, "table_name", None),
                 )
                 for row in rows
             ]
@@ -182,6 +187,11 @@ class RetrievalService:
                     Chunk.section,
                     Chunk.access_level,
                     Chunk.department,
+                    Chunk.source_type,
+                    Chunk.source_path,
+                    Chunk.page_number,
+                    Chunk.content_type,
+                    Chunk.table_name,
                 )
             ).all()
             bm25_indexes = bm25_rank(
@@ -214,6 +224,11 @@ class RetrievalService:
                     score=all_ids[rid],
                     access_level=id_map[rid].access_level,
                     department=id_map[rid].department,
+                    source_type=getattr(id_map[rid], "source_type", "markdown"),
+                    source_path=getattr(id_map[rid], "source_path", ""),
+                    page_number=getattr(id_map[rid], "page_number", None),
+                    content_type=getattr(id_map[rid], "content_type", "text"),
+                    table_name=getattr(id_map[rid], "table_name", None),
                 )
                 for rid in ranked_ids if rid in id_map
             ]

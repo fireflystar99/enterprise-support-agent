@@ -14,11 +14,20 @@ DOCUMENTS_DIR = Path("data/documents")
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed knowledge base with demo documents")
     parser.add_argument("--clear", action="store_true", help="Clear existing data before seeding")
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     print("Seeding knowledge base...")
-    count = ingest_to_db(DOCUMENTS_DIR, clear=args.clear)
-    print(f"  Inserted {count} chunks into pgvector.")
+    summary = ingest_to_db(DOCUMENTS_DIR, clear=args.clear)
+    text_chunks = sum(r.text_chunks for r in summary.pdf_reports)
+    table_chunks = sum(r.table_chunks for r in summary.pdf_reports)
+    print(f"  Inserted {summary.chunk_count} chunks into pgvector.")
+    print(f"  Markdown documents: {summary.markdown_documents}")
+    print(f"  PDF documents: {len(summary.pdf_reports)}")
+    print(f"  PDF text chunks: {text_chunks}")
+    print(f"  Table chunks: {table_chunks}")
+    for report in summary.pdf_reports:
+        if report.status != "success":
+            print(f"  SKIPPED: {report.path} ({report.status})")
     print("Done. Start the API with: uvicorn app.api.main:app --reload")
 
 

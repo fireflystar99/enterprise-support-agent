@@ -10,6 +10,66 @@ class ChunkDraft:
     department: str
     access_level: str = "public"
     version: str = "1.0"
+    source_type: str = "markdown"
+    source_path: str = ""
+    page_number: int | None = None
+    content_type: str = "text"
+    table_name: str | None = None
+    table_json: str | None = None
+
+
+def chunk_text(
+    text: str,
+    *,
+    title: str,
+    section: str = "",
+    department: str = "General",
+    access_level: str = "public",
+    version: str = "1.0",
+    source_type: str = "markdown",
+    source_path: str = "",
+    page_number: int | None = None,
+    content_type: str = "text",
+    table_name: str | None = None,
+    table_json: str | None = None,
+    max_size: int = 800,
+    overlap: int = 120,
+) -> list[ChunkDraft]:
+    """在单一来源边界内切分文本，绝不跨越该边界。"""
+    content = text.strip()
+    if not content:
+        return []
+
+    def make_chunk(segment: str) -> ChunkDraft:
+        return ChunkDraft(
+            content=segment,
+            title=title,
+            section=section,
+            department=department,
+            access_level=access_level,
+            version=version,
+            source_type=source_type,
+            source_path=source_path,
+            page_number=page_number,
+            content_type=content_type,
+            table_name=table_name,
+            table_json=table_json,
+        )
+
+    if len(content) <= max_size:
+        return [make_chunk(content)]
+
+    chunks: list[ChunkDraft] = []
+    start = 0
+    while start < len(content):
+        end = min(start + max_size, len(content))
+        segment = content[start:end].strip()
+        if segment:
+            chunks.append(make_chunk(segment))
+        if end >= len(content):
+            break
+        start = end - overlap
+    return chunks
 
 
 def chunk_markdown(
@@ -33,32 +93,16 @@ def chunk_markdown(
         if not content:
             current_buffer = []
             return
-        if len(content) > max_size:
-            start = 0
-            while start < len(content):
-                end = min(start + max_size, len(content))
-                segment = content[start:end].strip()
-                if segment:
-                    chunks.append(ChunkDraft(
-                        content=segment,
-                        title=title,
-                        section=current_section,
-                        department=department,
-                        access_level=access_level,
-                        version=version,
-                    ))
-                if end >= len(content):
-                    break
-                start = end - overlap
-        else:
-            chunks.append(ChunkDraft(
-                content=content,
-                title=title,
-                section=current_section,
-                department=department,
-                access_level=access_level,
-                version=version,
-            ))
+        chunks.extend(chunk_text(
+            content,
+            title=title,
+            section=current_section,
+            department=department,
+            access_level=access_level,
+            version=version,
+            max_size=max_size,
+            overlap=overlap,
+        ))
         current_buffer = []
 
     for line in lines:
